@@ -3,68 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SSR Zombie - Multiplayer</title>
+    <title>SSR Zombie - Ultimate Multiplayer</title>
     
-    <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
-        :root { --neon-blue: #00f2ff; --neon-pink: #ff007b; --neon-green: #39ff14; --neon-yellow: #fff200; }
-        body { margin: 0; overflow: hidden; font-family: 'Orbitron', sans-serif; background: #000; color: #fff; user-select: none; }
+        :root { --neon-blue: #00f2ff; --neon-pink: #ff007b; --neon-green: #39ff14; }
+        body { margin: 0; overflow: hidden; font-family: 'Orbitron', sans-serif; background: #050505; color: #fff; user-select: none; }
         
+        /* UI Styling */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-        .hud { position: absolute; padding: 20px; pointer-events: auto; background: rgba(0,0,0,0.6); border: 1px solid var(--neon-blue); border-radius: 0 0 20px 0; }
-        .top-right { top: 10px; right: 10px; border-radius: 0 0 0 20px; border-color: var(--neon-pink); }
+        .hud-panel { position: absolute; padding: 20px; pointer-events: auto; background: rgba(0,0,0,0.7); border: 2px solid var(--neon-blue); box-shadow: 0 0 15px rgba(0, 242, 255, 0.3); }
+        .top-left { top: 15px; left: 15px; border-radius: 0 20px 20px 0; }
+        .top-right { top: 15px; right: 15px; border-radius: 20px 0 0 20px; text-align: right; border-color: var(--neon-pink); }
         
-        #hp-container { width: 200px; height: 12px; background: #222; border: 1px solid var(--neon-blue); margin-top: 5px; }
-        #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #0088ff, var(--neon-blue)); transition: 0.3s; }
+        #hp-bar-container { width: 220px; height: 15px; background: #111; border: 1px solid var(--neon-blue); margin-top: 8px; overflow: hidden; }
+        #hp-bar-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #0055ff, var(--neon-blue)); transition: width 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67); }
         
-        .stat-val { font-size: 18px; font-weight: bold; color: var(--neon-blue); text-shadow: 0 0 10px var(--neon-blue); }
-        #joystick-zone { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; pointer-events: auto; }
+        .stat-row { display: flex; gap: 15px; margin-top: 10px; font-size: 14px; }
+        .val { color: var(--neon-blue); font-weight: bold; }
+
+        #joystick-zone { position: absolute; bottom: 50px; left: 50px; width: 130px; height: 130px; pointer-events: auto; }
         
-        .msg { position: absolute; bottom: 20px; width: 100%; text-align: center; color: var(--neon-green); font-size: 12px; text-transform: uppercase; }
-        .overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(10,15,25,0.95); border: 2px solid var(--neon-blue); padding: 40px; text-align: center; display: none; pointer-events: auto; }
-        
-        button { background: transparent; border: 1px solid var(--neon-blue); color: #fff; padding: 10px 20px; font-family: 'Orbitron'; cursor: pointer; transition: 0.3s; margin-top: 20px; }
-        button:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 20px var(--neon-blue); }
+        #loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; transition: opacity 1s; }
+        .spinner { width: 50px; height: 50px; border: 5px solid #111; border-top: 5px solid var(--neon-blue); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(10,15,28,0.95); border: 3px solid var(--neon-pink); padding: 50px; text-align: center; display: none; pointer-events: auto; }
+        button { background: transparent; border: 2px solid var(--neon-blue); color: #fff; padding: 12px 30px; font-family: 'Orbitron'; cursor: pointer; transition: 0.3s; margin-top: 20px; font-size: 16px; }
+        button:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 30px var(--neon-blue); }
     </style>
 </head>
 <body>
 
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <p style="margin-top: 20px; letter-spacing: 5px;">SYNCING NEURAL LINK...</p>
+    </div>
+
     <div id="ui-layer">
-        <div class="hud">
-            <div style="font-size: 10px; color: var(--neon-blue)">PLAYER SYSTEM</div>
-            <div id="hp-container"><div id="hp-fill"></div></div>
-            <div style="margin-top:10px">
-                LEVEL: <span id="lvl-txt" class="stat-val">1</span> | 
-                ATK: <span id="atk-txt" class="stat-val">5</span>
+        <!-- Local Player HUD -->
+        <div class="hud-panel top-left">
+            <div style="font-size: 12px; color: var(--neon-blue); opacity: 0.8;">SURVIVOR STATUS</div>
+            <div id="hp-bar-container"><div id="hp-bar-fill"></div></div>
+            <div class="stat-row">
+                <div>LVL: <span id="lvl-val" class="val">1</span></div>
+                <div>ATK: <span id="atk-val" class="val">5</span></div>
+                <div>SPD: <span id="spd-val" class="val">100%</span></div>
             </div>
         </div>
 
-        <div class="hud top-right">
-            <div style="font-size: 10px; color: var(--neon-pink)">SERVER STATUS</div>
-            <div>CREDITS: <span id="coin-txt" class="stat-val" style="color:var(--neon-yellow)">0</span></div>
-            <div style="font-size: 12px; margin-top:5px">PLAYERS ONLINE: <span id="online-txt">1</span></div>
+        <!-- Global HUD -->
+        <div class="hud-panel top-right">
+            <div style="font-size: 12px; color: var(--neon-pink); opacity: 0.8;">NETWORK INFO</div>
+            <div style="font-size: 24px; color: gold; text-shadow: 0 0 10px rgba(255,215,0,0.5);">🪙 <span id="coin-val">0</span></div>
+            <div style="margin-top: 10px; font-size: 12px;">ACTIVE USERS: <span id="online-val" class="val" style="color: var(--neon-pink);">1</span></div>
         </div>
 
         <div id="game-over" class="overlay">
-            <h1 style="color:var(--neon-pink)">CONNECTION LOST</h1>
-            <p>Your System was Destroyed</p>
-            <button onclick="location.reload()">REBOOT SYSTEM</button>
+            <h1 style="color: var(--neon-pink); font-size: 40px; margin: 0;">SYSTEM HALTED</h1>
+            <p style="opacity: 0.7;">CONNECTION TO SURVIVOR LOST.</p>
+            <button onclick="location.reload()">RE-ESTABLISH LINK</button>
         </div>
-
-        <div class="msg" id="buff-msg"></div>
     </div>
 
     <div id="joystick-zone"></div>
 
+    <!-- Import Map สำหรับ Modules -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
     <script type="module">
-        // Firebase Setup using your provided Config
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue, onDisconnect, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+        // --- FIREBASE CONFIG (ของคุณ) ---
         const firebaseConfig = {
             apiKey: "AIzaSyC1SLWvio-oYibt4pzY8xVZRErHAbMLqbk",
             authDomain: "ssr-zombie.firebaseapp.com",
@@ -72,272 +95,318 @@
             storageBucket: "ssr-zombie.firebasestorage.app",
             messagingSenderId: "675922375054",
             appId: "1:675922375054:web:660c59fdf774f1e94c74df",
-            // สร้าง databaseURL อัตโนมัติจาก Project ID
             databaseURL: "https://ssr-zombie-default-rtdb.asia-southeast1.firebasedatabase.app"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // --- GAME ENGINE ---
+        // --- GAME VARIABLES ---
         let scene, camera, renderer, clock, player;
-        let playerId = "Player_" + Math.floor(Math.random() * 1000);
+        let playerId = "P_" + Math.floor(Math.random() * 9999);
         let otherPlayers = {};
         let zombies = [], bullets = [], items = [];
-        let moveVec = { x: 0, z: 0 };
+        let mixers = []; // สำหรับเอนิเมชั่น
+        let playerMixer, playerActions = {};
         
-        let stats = { hp: 100, maxHp: 100, atk: 5, level: 1, money: 0, speed: 0.15, fireRate: 500 };
-        let lastShot = 0;
+        let moveVec = new THREE.Vector3();
+        let stats = { hp: 100, maxHp: 100, money: 0, level: 1, atk: 5, speed: 0.18, fireRate: 450 };
+        let isLoaded = false;
 
-        function init() {
+        const loader = new GLTFLoader();
+
+        // --- ASSETS URLS ---
+        const MODELS = {
+            survivor: 'https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/pro-adventurer/model.gltf',
+            zombie: 'https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/skeleton-minion/model.gltf'
+        };
+
+        async function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x020205);
-            scene.fog = new THREE.FogExp2(0x020205, 0.05);
+            scene.background = new THREE.Color(0x020208);
+            scene.fog = new THREE.FogExp2(0x020208, 0.04);
 
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
 
-            // Lighting
-            scene.add(new THREE.AmbientLight(0x404040, 2));
-            const directionalLight = new THREE.DirectionalLight(0x00f2ff, 1);
-            directionalLight.position.set(5, 10, 7);
-            scene.add(directionalLight);
+            // Light
+            const amb = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(amb);
+            const dir = new THREE.DirectionalLight(0x00f2ff, 1.5);
+            dir.position.set(10, 20, 10);
+            dir.castShadow = true;
+            scene.add(dir);
 
-            // Ground Grid
-            const grid = new THREE.GridHelper(200, 100, 0x00f2ff, 0x050505);
+            // Ground
+            const grid = new THREE.GridHelper(200, 80, 0x00f2ff, 0x111111);
             scene.add(grid);
 
-            // Local Player Mesh
-            const geo = new THREE.BoxGeometry(1, 1.5, 1);
-            const mat = new THREE.MeshPhongMaterial({ color: 0x00f2ff, emissive: 0x00f2ff, emissiveIntensity: 0.5 });
-            player = new THREE.Mesh(geo, mat);
-            player.position.y = 0.75;
-            scene.add(player);
+            // Load Player Model
+            loader.load(MODELS.survivor, (gltf) => {
+                player = gltf.scene;
+                player.scale.set(1, 1, 1);
+                player.traverse(n => { if(n.isMesh) n.castShadow = true; });
+                scene.add(player);
 
-            // Initial Firebase Entry
-            const playerRef = ref(db, 'players/' + playerId);
-            set(playerRef, { x: 0, z: 0, hp: 100, score: 0 });
-            onDisconnect(playerRef).remove();
+                // Setup Animations
+                playerMixer = new THREE.AnimationMixer(player);
+                gltf.animations.forEach(clip => {
+                    if(clip.name.toLowerCase().includes('idle')) playerActions.idle = playerMixer.clipAction(clip);
+                    if(clip.name.toLowerCase().includes('run')) playerActions.run = playerMixer.clipAction(clip);
+                });
+                playerActions.idle?.play();
 
-            // Sync Players from Firebase
-            onValue(ref(db, 'players'), (snapshot) => {
-                const data = snapshot.val();
-                if(!data) return;
+                // Connect to Firebase
+                initMultiplayer();
+                setupControls();
                 
-                document.getElementById('online-txt').innerText = Object.keys(data).length;
-
-                Object.keys(data).forEach(id => {
-                    if(id === playerId) return;
-                    if(!otherPlayers[id]) {
-                        const pGeo = new THREE.BoxGeometry(1, 1.5, 1);
-                        const pMat = new THREE.MeshPhongMaterial({ color: 0xff007b });
-                        const pMesh = new THREE.Mesh(pGeo, pMat);
-                        scene.add(pMesh);
-                        otherPlayers[id] = pMesh;
-                    }
-                    otherPlayers[id].position.set(data[id].x, 0.75, data[id].z);
-                });
-
-                // ลบผู้เล่นที่หายไป
-                Object.keys(otherPlayers).forEach(id => {
-                    if(!data[id]) {
-                        scene.remove(otherPlayers[id]);
-                        delete otherPlayers[id];
-                    }
-                });
+                document.getElementById('loading-screen').style.opacity = '0';
+                setTimeout(() => document.getElementById('loading-screen').remove(), 1000);
+                isLoaded = true;
             });
 
-            setupControls();
             clock = new THREE.Clock();
             animate();
         }
 
+        function initMultiplayer() {
+            const pRef = ref(db, 'players/' + playerId);
+            onDisconnect(pRef).remove();
+
+            // Sync players
+            onValue(ref(db, 'players'), (snap) => {
+                const data = snap.val();
+                if(!data) return;
+                document.getElementById('online-val').innerText = Object.keys(data).length;
+
+                Object.keys(data).forEach(id => {
+                    if(id === playerId) return;
+                    if(!otherPlayers[id]) createOtherPlayer(id);
+                    
+                    const op = otherPlayers[id];
+                    if(op.model) {
+                        op.model.position.lerp(new THREE.Vector3(data[id].x, 0, data[id].z), 0.2);
+                        op.model.rotation.y = data[id].ry;
+                        
+                        // Remote Animation Sync
+                        if(data[id].moving) {
+                            if(!op.isMoving) { op.actions.idle?.stop(); op.actions.run?.play(); op.isMoving = true; }
+                        } else {
+                            if(op.isMoving) { op.actions.run?.stop(); op.actions.idle?.play(); op.isMoving = false; }
+                        }
+                    }
+                });
+
+                Object.keys(otherPlayers).forEach(id => {
+                    if(!data[id]) { 
+                        scene.remove(otherPlayers[id].model); 
+                        delete otherPlayers[id]; 
+                    }
+                });
+            });
+        }
+
+        function createOtherPlayer(id) {
+            otherPlayers[id] = { model: null, mixer: null, actions: {}, isMoving: false };
+            loader.load(MODELS.survivor, (gltf) => {
+                const model = gltf.scene;
+                model.traverse(n => { if(n.isMesh) n.material.emissive = new THREE.Color(0xff007b); });
+                scene.add(model);
+                
+                const mixer = new THREE.AnimationMixer(model);
+                const actions = {};
+                gltf.animations.forEach(clip => {
+                    if(clip.name.toLowerCase().includes('idle')) actions.idle = mixer.clipAction(clip);
+                    if(clip.name.toLowerCase().includes('run')) actions.run = mixer.clipAction(clip);
+                });
+                actions.idle?.play();
+                
+                otherPlayers[id].model = model;
+                otherPlayers[id].mixer = mixer;
+                otherPlayers[id].actions = actions;
+                mixers.push(mixer);
+            });
+        }
+
         function setupControls() {
-            // WASD PC
             const keys = {};
             window.addEventListener('keydown', e => keys[e.code] = true);
             window.addEventListener('keyup', e => keys[e.code] = false);
 
             setInterval(() => {
-                moveVec = { x: 0, z: 0 };
-                if(keys['KeyW']) moveVec.z = -1;
-                if(keys['KeyS']) moveVec.z = 1;
-                if(keys['KeyA']) moveVec.x = -1;
-                if(keys['KeyD']) moveVec.x = 1;
-            }, 10);
+                let x = 0, z = 0;
+                if(keys['KeyW']) z = -1; if(keys['KeyS']) z = 1;
+                if(keys['KeyA']) x = -1; if(keys['KeyD']) x = 1;
+                moveVec.set(x, 0, z).normalize();
+            }, 20);
 
-            // Mobile Joystick
             nipplejs.create({
                 zone: document.getElementById('joystick-zone'),
-                mode: 'static',
-                position: { left: '70px', bottom: '70px' },
-                color: 'cyan'
-            }).on('move', (e, data) => {
-                moveVec.x = Math.cos(data.angle.radian) * data.force;
-                moveVec.z = -Math.sin(data.angle.radian) * data.force;
-            }).on('end', () => moveVec = { x: 0, z: 0 });
+                mode: 'static', position: {left: '70px', bottom: '70px'}, color: '#00f2ff'
+            }).on('move', (e, d) => {
+                moveVec.set(Math.cos(d.angle.radian), 0, -Math.sin(d.angle.radian)).multiplyScalar(d.force);
+            }).on('end', () => moveVec.set(0,0,0));
         }
 
-        // --- ITEM DROP SYSTEM ---
+        function animate() {
+            requestAnimationFrame(animate);
+            if(!isLoaded) return;
+            const delta = clock.getDelta();
+
+            // Player Logic
+            if(player) {
+                const isMoving = moveVec.length() > 0.1;
+                if(isMoving) {
+                    player.position.addScaledVector(moveVec, stats.speed);
+                    const targetAngle = Math.atan2(moveVec.x, moveVec.z);
+                    player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, targetAngle, 0.15);
+                    
+                    if(!playerActions.run.isRunning()) {
+                        playerActions.idle.stop();
+                        playerActions.run.play();
+                    }
+                } else {
+                    if(!playerActions.idle.isRunning()) {
+                        playerActions.run.stop();
+                        playerActions.idle.play();
+                    }
+                }
+
+                // Camera follow
+                camera.position.lerp(new THREE.Vector3(player.position.x, 15, player.position.z + 12), 0.1);
+                camera.lookAt(player.position);
+
+                // Sync to Firebase
+                update(ref(db, 'players/' + playerId), {
+                    x: player.position.x, z: player.position.z, ry: player.rotation.y, moving: isMoving
+                });
+            }
+
+            // Auto Shoot
+            if(Date.now() - lastShot > stats.fireRate) {
+                let target = null;
+                let minDist = 18;
+                zombies.forEach(z => {
+                    const d = player.position.distanceTo(z.model.position);
+                    if(d < minDist) { minDist = d; target = z; }
+                });
+                if(target) { shoot(target.model.position); lastShot = Date.now(); }
+            }
+
+            // Update all mixers
+            if(playerMixer) playerMixer.update(delta);
+            mixers.forEach(m => m.update(delta));
+
+            updateZombies(delta);
+            updateBullets();
+            updateItems();
+            updateUI();
+            renderer.render(scene, camera);
+        }
+
+        let lastShot = 0;
+        function shoot(targetPos) {
+            const b = new THREE.Mesh(
+                new THREE.SphereGeometry(0.2),
+                new THREE.MeshBasicMaterial({color: 0xffff00})
+            );
+            b.position.copy(player.position).y = 1.2;
+            const dir = new THREE.Vector3().subVectors(targetPos, player.position).normalize();
+            scene.add(b);
+            bullets.push({ mesh: b, dir: dir, life: 100 });
+        }
+
+        function updateZombies(delta) {
+            if(zombies.length < 5 + stats.level) spawnZombie();
+
+            zombies.forEach((z, i) => {
+                const dir = new THREE.Vector3().subVectors(player.position, z.model.position).normalize();
+                z.model.position.addScaledVector(dir, 0.05 + (stats.level * 0.005));
+                z.model.lookAt(player.position);
+                if(z.mixer) z.mixer.update(delta);
+
+                if(z.model.position.distanceTo(player.position) < 1.2) {
+                    stats.hp -= 0.3;
+                    if(stats.hp <= 0) gameOver();
+                }
+
+                bullets.forEach((b, bi) => {
+                    if(b.mesh.position.distanceTo(z.model.position) < 1.2) {
+                        z.hp -= stats.atk;
+                        b.life = 0;
+                        if(z.hp <= 0) {
+                            spawnItem(z.model.position);
+                            scene.remove(z.model);
+                            zombies.splice(i, 1);
+                        }
+                    }
+                });
+            });
+        }
+
+        function spawnZombie() {
+            const angle = Math.random() * Math.PI * 2;
+            const pos = new THREE.Vector3(player.position.x + Math.cos(angle)*25, 0, player.position.z + Math.sin(angle)*25);
+            
+            loader.load(MODELS.zombie, (gltf) => {
+                const model = gltf.scene;
+                model.position.copy(pos);
+                model.scale.set(1.2, 1.2, 1.2);
+                model.traverse(n => { if(n.isMesh) n.material.emissive = new THREE.Color(0xff0000); });
+                scene.add(model);
+                
+                const mixer = new THREE.AnimationMixer(model);
+                if(gltf.animations.length > 0) mixer.clipAction(gltf.animations[0]).play();
+                
+                zombies.push({ model, mixer, hp: 10 + (stats.level*5) });
+            });
+        }
+
         function spawnItem(pos) {
-            const rand = Math.random();
-            let type = "";
-            let color = 0xffffff;
-
-            if(rand < 0.1) { type = "HEAL"; color = 0x39ff14; } // 10%
-            else if(rand < 0.2) { type = "POWER"; color = 0xff007b; } // 10%
-            else { type = "COIN"; color = 0xfff200; } // 80%
-
-            const geo = new THREE.OctahedronGeometry(0.4);
-            const mat = new THREE.MeshPhongMaterial({ color, emissive: color });
+            const geo = new THREE.IcosahedronGeometry(0.5);
+            const mat = new THREE.MeshPhongMaterial({color: 0x39ff14, emissive: 0x39ff14});
             const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(pos.x, 0.5, pos.z);
-            mesh.userData = { type };
+            mesh.position.copy(pos).y = 0.5;
             scene.add(mesh);
             items.push(mesh);
         }
 
         function updateItems() {
-            for(let i = items.length - 1; i >= 0; i--) {
-                const item = items[i];
-                item.rotation.y += 0.05;
-                if(player.position.distanceTo(item.position) < 1.2) {
-                    const type = item.userData.type;
-                    if(type === "HEAL") { stats.hp = Math.min(stats.maxHp, stats.hp + 30); showMsg("HEALTH RESTORED"); }
-                    if(type === "POWER") { stats.atk += 2; showMsg("ATTACK POWER UP"); }
-                    if(type === "COIN") { stats.money += 10; checkLevel(); }
-                    
-                    scene.remove(item);
+            items.forEach((it, i) => {
+                it.rotation.y += 0.05;
+                if(player.position.distanceTo(it.position) < 1.5) {
+                    stats.money += 10;
+                    stats.hp = Math.min(stats.maxHp, stats.hp + 10);
+                    if(stats.money % 50 === 0) stats.level++;
+                    scene.remove(it);
                     items.splice(i, 1);
                 }
-            }
-        }
-
-        function showMsg(txt) {
-            const el = document.getElementById('buff-msg');
-            el.innerText = txt;
-            setTimeout(() => el.innerText = "", 2000);
-        }
-
-        function checkLevel() {
-            if(stats.money >= stats.level * 50) {
-                stats.level++;
-                stats.maxHp += 20;
-                stats.hp = stats.maxHp;
-                showMsg("LEVEL UP!");
-            }
-        }
-
-        // --- CORE LOOP ---
-        function animate() {
-            requestAnimationFrame(animate);
-            const delta = clock.getDelta();
-
-            // Move Player
-            player.position.x += moveVec.x * stats.speed;
-            player.position.z += moveVec.z * stats.speed;
-            if(moveVec.x !== 0 || moveVec.z !== 0) player.rotation.y = Math.atan2(moveVec.x, moveVec.z);
-
-            // Sync to Firebase
-            update(ref(db, 'players/' + playerId), {
-                x: player.position.x,
-                z: player.position.z,
-                hp: stats.hp
             });
-
-            // Auto Shoot nearest
-            if(Date.now() - lastShot > stats.fireRate) {
-                let target = null;
-                let minDist = 15;
-                zombies.forEach(z => {
-                    const d = player.position.distanceTo(z.mesh.position);
-                    if(d < minDist) { minDist = d; target = z; }
-                });
-                if(target) {
-                    shoot(target.mesh.position);
-                    lastShot = Date.now();
-                }
-            }
-
-            camera.position.lerp(new THREE.Vector3(player.position.x, player.position.y + 15, player.position.z + 12), 0.1);
-            camera.lookAt(player.position);
-
-            updateZombies();
-            updateBullets();
-            updateItems();
-            updateUI();
-
-            renderer.render(scene, camera);
-        }
-
-        function shoot(targetPos) {
-            const bGeo = new THREE.SphereGeometry(0.2);
-            const bMat = new THREE.MeshBasicMaterial({ color: 0xfff200 });
-            const mesh = new THREE.Mesh(bGeo, bMat);
-            mesh.position.copy(player.position).y = 1;
-            const dir = new THREE.Vector3().subVectors(targetPos, player.position).normalize();
-            scene.add(mesh);
-            bullets.push({ mesh, dir, life: 100 });
-        }
-
-        function updateZombies() {
-            if(zombies.length < 5 + stats.level) {
-                const angle = Math.random() * Math.PI * 2;
-                const x = player.position.x + Math.cos(angle) * 25;
-                const z = player.position.z + Math.sin(angle) * 25;
-                const mesh = new THREE.Mesh(new THREE.BoxGeometry(1,1.5,1), new THREE.MeshPhongMaterial({color: 0xff4400}));
-                mesh.position.set(x, 0.75, z);
-                scene.add(mesh);
-                zombies.push({ mesh, hp: 10 + (stats.level * 2) });
-            }
-
-            for(let i = zombies.length-1; i >= 0; i--) {
-                const z = zombies[i];
-                const dir = new THREE.Vector3().subVectors(player.position, z.mesh.position).normalize();
-                z.mesh.position.addScaledVector(dir, 0.04 + (stats.level * 0.005));
-                
-                if(z.mesh.position.distanceTo(player.position) < 1.1) {
-                    stats.hp -= 0.5;
-                    if(stats.hp <= 0) gameOver();
-                }
-
-                bullets.forEach((b, bi) => {
-                    if(b.mesh.position.distanceTo(z.mesh.position) < 1.2) {
-                        z.hp -= stats.atk;
-                        b.life = 0;
-                        if(z.hp <= 0) {
-                            spawnItem(z.mesh.position);
-                            scene.remove(z.mesh);
-                            zombies.splice(i, 1);
-                        }
-                    }
-                });
-            }
         }
 
         function updateBullets() {
-            for(let i = bullets.length-1; i >= 0; i--) {
+            for(let i=bullets.length-1; i>=0; i--) {
                 const b = bullets[i];
-                b.mesh.position.addScaledVector(b.dir, 0.5);
+                b.mesh.position.addScaledVector(b.dir, 0.6);
                 b.life--;
                 if(b.life <= 0) { scene.remove(b.mesh); bullets.splice(i, 1); }
             }
         }
 
         function updateUI() {
-            document.getElementById('hp-fill').style.width = (stats.hp/stats.maxHp*100) + "%";
-            document.getElementById('lvl-txt').innerText = stats.level;
-            document.getElementById('atk-txt').innerText = stats.atk;
-            document.getElementById('coin-txt').innerText = stats.money;
+            document.getElementById('hp-bar-fill').style.width = (stats.hp/stats.maxHp*100) + "%";
+            document.getElementById('lvl-val').innerText = stats.level;
+            document.getElementById('atk-val').innerText = stats.atk;
+            document.getElementById('coin-val').innerText = stats.money;
         }
 
         function gameOver() {
             document.getElementById('game-over').style.display = 'block';
             set(ref(db, 'players/' + playerId), null);
-            animate = () => {}; // หยุด Loop
+            isLoaded = false;
         }
 
         window.addEventListener('resize', () => {
