@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Meadow Survivor - Combat Edition</title>
+    <title>Meadow Survivor - Smooth Active World</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
@@ -17,54 +17,50 @@
         #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #ff4b2b, #ff416c); transition: 0.1s; }
         #joystick-zone { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; pointer-events: auto; }
         
-        /* Mobile Attack Button */
-        #attack-btn { position: absolute; bottom: 50px; right: 50px; width: 80px; height: 80px; background: #ff416c; border: 3px solid white; border-radius: 50%; color: white; font-family: 'Orbitron'; font-weight: bold; font-size: 14px; cursor: pointer; pointer-events: auto; display: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
-        
         #menu-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 100; flex-direction: column; }
-        .weapon-card { background: rgba(255,255,255,0.1); border: 2px solid var(--neon-blue); padding: 20px; margin: 10px; cursor: pointer; border-radius: 10px; transition: 0.3s; width: 250px; text-align: center; }
+        .weapon-card { background: rgba(255,255,255,0.1); border: 2px solid #00f2ff; padding: 20px; margin: 10px; cursor: pointer; border-radius: 10px; transition: 0.3s; width: 250px; text-align: center; color: white; }
         .weapon-card:hover { background: #00f2ff; color: black; box-shadow: 0 0 20px #00f2ff; }
         
         .overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border: 4px solid #ff416c; text-align: center; display: none; pointer-events: auto; border-radius: 20px; }
         button { background: #2d5a27; border: none; color: white; padding: 12px 25px; font-family: 'Orbitron'; cursor: pointer; border-radius: 8px; font-weight: bold; }
-        .instruction { position: absolute; bottom: 20px; right: 20px; font-size: 10px; color: #2d5a27; opacity: 0.7; }
+        .instruction { position: absolute; bottom: 20px; right: 20px; font-size: 11px; color: #2d5a27; opacity: 0.8; font-weight: bold; background: rgba(255,255,255,0.7); padding: 5px 10px; border-radius: 5px; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
     <!-- หน้าจอเลือกอาวุธเริ่มต้น -->
     <div id="menu-screen">
-        <h1 style="color: #00f2ff; letter-spacing: 3px; margin-bottom: 30px;">CHOOSE YOUR LOADOUT</h1>
+        <h1 style="color: #00f2ff; letter-spacing: 3px; margin-bottom: 30px;">CHOOSE YOUR WEAPON</h1>
         <div style="display: flex; flex-wrap: wrap; justify-content: center;">
             <div class="weapon-card" onclick="selectWeapon('melee')">
                 <h2>⚔️ MELEE (มีด)</h2>
-                <p>โจมตีระยะใกล้เป็นวงกว้าง ดาเมจสูงมาก</p>
+                <p>โจมตีระยะใกล้แบบกวาด ดาเมจสูงมาก</p>
             </div>
             <div class="weapon-card" onclick="selectWeapon('pistol')">
                 <h2>🔫 PISTOL (ปืนพก)</h2>
-                <p>ยิงกระสุนพลังงานโจมตีจากระยะปลอดภัย</p>
+                <p>ยิงกระสุนพลังงานจากระยะปลอดภัย</p>
             </div>
             <div class="weapon-card" onclick="selectWeapon('companion')">
                 <h2>🤖 COMPANION (โดรน)</h2>
-                <p>รับโดรนจิ๋วช่วยยิงเป้าหมายอัตโนมัติ</p>
+                <p>โดรนจิ๋วช่วยบินติดตามและยิงออโต้</p>
             </div>
         </div>
     </div>
 
     <div id="ui-layer">
         <div class="hud top-left">
-            <div style="font-weight: bold; font-size: 11px;">NANOBOT STATUS [<span id="weapon-name">NONE</span>]</div>
+            <div style="font-weight: bold; font-size: 11px;">LOADOUT: [<span id="weapon-name" style="color:#ff416c">NONE</span>]</div>
             <div id="hp-bar"><div id="hp-fill"></div></div>
             <div style="margin-top:10px; font-size: 18px; font-weight: bold;">🪙 <span id="coin-val">0</span></div>
             <div style="font-size: 10px; margin-top:5px; opacity: 0.7;">SURVIVORS ONLINE: <span id="online-val">1</span></div>
         </div>
         
-        <div id="attack-btn" onclick="performAttack()">ATTACK</div>
-        
         <div id="game-over" class="overlay">
             <h1 style="color:#ff416c; margin-top:0;">LINK BROKEN</h1>
             <button onclick="location.reload()">RESPAWN</button>
         </div>
-        <div class="instruction">CLICK LEFT: ATTACK | CLICK RIGHT & DRAG: ROTATE CAMERA | WASD: MOVE</div>
+        <div class="instruction">คลิกซ้าย: โจมตี | คลิกขวาค้าง+ลาก: หมุนกล้อง | WASD: เคลื่อนที่</div>
     </div>
 
     <div id="joystick-zone"></div>
@@ -86,7 +82,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue, onDisconnect, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // Firebase Config
+        // --- FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyC1SLWvio-oYibt4pzY8xVZRErHAbMLqbk",
             authDomain: "ssr-zombie.firebaseapp.com",
@@ -105,16 +101,19 @@
             zombie: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/Soldier.glb'
         };
 
-        let scene, camera, renderer, clock, controls, player;
+        let scene, camera, renderer, player;
         let playerMixer, playerActions = {}, currentWeapon = 'melee';
         let zombieBase, zombieAnims, isReady = false;
         let otherPlayers = {}, zombies = [], bullets = [];
         let moveVec = new THREE.Vector3();
-        let stats = { hp: 100, money: 0, speed: 10, isAttacking: false };
+        let stats = { hp: 100, money: 0, speed: 12, isAttacking: false };
         let lastShot = 0;
 
         // Companion
         let companion, companionMixer, companionAction;
+
+        // ** สร้างระบบเวลา (Clock) ไว้ระดับบนสุดเพื่อให้พร้อมใช้งานเสมอ **
+        const clock = new THREE.Clock();
 
         window.selectWeapon = function(type) {
             currentWeapon = type;
@@ -136,20 +135,20 @@
             renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
 
-            // Controls ปรับแต่งปุ่มคลิกขวาหมุนมุมกล้อง
+            // ปรับปรุงระบบกล้อง OrbitControls
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
             controls.maxPolarAngle = Math.PI / 2.2;
             
-            // คลิกซ้ายยิง/โจมตี คลิกขวาหมุนกล้อง
+            // คลิกซ้ายโจมตี / คลิกขวาหมุนมุมกล้องรอบตัว
             controls.mouseButtons = {
-                LEFT: THREE.MOUSE.NONE, // ปิดใช้งานหมุนด้วยคลิกซ้าย
+                LEFT: THREE.MOUSE.NONE, 
                 MIDDLE: THREE.MOUSE.DOLLY,
-                RIGHT: THREE.MOUSE.ROTATE // ใช้คลิกขวาในการหมุนกล้อง
+                RIGHT: THREE.MOUSE.ROTATE 
             };
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            scene.add(new THREE.AmbientLight(0xffffff, 0.9));
             const sun = new THREE.DirectionalLight(0xffffff, 1.2);
             sun.position.set(30, 80, 30);
             sun.castShadow = true;
@@ -182,18 +181,17 @@
             pGltf.animations.forEach(a => {
                 if(a.name === 'Idle') playerActions.idle = playerMixer.clipAction(a);
                 if(a.name === 'Running') playerActions.run = playerMixer.clipAction(a);
-                if(a.name === 'Punch') playerActions.attack = playerMixer.clipAction(a); // ใช้ท่า Punch เป็นการโจมตี
+                if(a.name === 'Punch') playerActions.attack = playerMixer.clipAction(a);
             });
             playerActions.idle?.play();
 
-            // สร้าง Companion หากเลือกคลาสโดรน
             if(currentWeapon === 'companion') {
                 createCompanion(pGltf);
             }
 
-            // Bind Event คลิกซ้ายในการยิง/ฟัน
+            // คลิกซ้ายฟัน/ยิงปืน
             window.addEventListener('mousedown', (e) => {
-                if(e.button === 0) performAttack(); // 0 = คลิกซ้าย
+                if(e.button === 0) performAttack();
             });
 
             isReady = true;
@@ -204,7 +202,7 @@
 
         function createCompanion(gltf) {
             companion = SkeletonUtils.clone(gltf.scene);
-            companion.scale.set(0.18, 0.18, 0.18); // ขนาดจิ๋ว
+            companion.scale.set(0.18, 0.18, 0.18);
             companion.traverse(n => { if(n.isMesh) n.material.emissive = new THREE.Color(0x00f2ff); });
             scene.add(companion);
 
@@ -224,31 +222,23 @@
             playerActions.idle?.stop();
             playerActions.attack?.reset().setLoop(THREE.LoopOnce).play();
 
-            // ล้างสถานะเมื่อเอนิเมชั่นจบ
-            setTimeout(() => {
-                stats.isAttacking = false;
-            }, 400);
+            setTimeout(() => { stats.isAttacking = false; }, 400);
 
-            // คำนวณความเสียหาย
             if(currentWeapon === 'melee') {
-                // โจมตีประชิด (AOE Damage)
                 zombies.forEach((z) => {
                     if(z.model.position.distanceTo(player.position) < 3.5) {
                         applyDamageToZombie(z, 15);
                     }
                 });
             } else if(currentWeapon === 'pistol') {
-                // ค้นหาเป้าหมายและยิง
                 let target = getNearestZombie(20);
-                if(target) {
-                    shootBullet(target.position);
-                }
+                if(target) shootBullet(target.position);
             }
         }
 
         function shootBullet(targetPos) {
             const b = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshBasicMaterial({color: 0xffea00}));
-            b.position.copy(player.position).y = 1.0;
+            b.position.copy(player.position).y = 1.2;
             const dir = new THREE.Vector3().subVectors(targetPos, player.position).normalize();
             scene.add(b);
             bullets.push({ mesh: b, dir, life: 60 });
@@ -267,20 +257,21 @@
         }
 
         function spawnZombie() {
-            if(!zombieBase || zombies.length > 12) return;
+            if(!zombieBase || zombies.length > 10) return;
             const model = SkeletonUtils.clone(zombieBase);
             model.scale.set(1.4, 1.4, 1.4);
             
             const a = Math.random() * Math.PI * 2;
-            model.position.set(player.position.x + Math.cos(a)*35, 0, player.position.z + Math.sin(a)*35);
+            model.position.set(player.position.x + Math.cos(a)*30, 0, player.position.z + Math.sin(a)*30);
             scene.add(model);
             
             const mixer = new THREE.AnimationMixer(model);
-            const isRunner = Math.random() > 0.6; // 40% มีโอกาสสุ่มเจอซอมบี้วิ่งเร็ว
+            const isRunner = Math.random() > 0.5; // สุ่มให้ซอมบี้ 50% วิ่งเร็ว
             
             const clipName = isRunner ? 'Run' : 'Walk';
-            const actionClip = zombieAnims.find(an => an.name === clipName);
-            const deadClip = zombieAnims.find(an => an.name === 'Dead');
+            // ป้องกันการสะกดผิดเคสตัวพิมพ์เล็ก/ใหญ่ของไฟล์โมเดลภายนอกด้วยการใช้ fallback ตัวแรกหากไม่เจอ
+            const actionClip = zombieAnims.find(an => an.name.toLowerCase() === clipName.toLowerCase()) || zombieAnims[0];
+            const deadClip = zombieAnims.find(an => an.name.toLowerCase() === 'dead') || zombieAnims[1];
 
             const actions = {
                 move: mixer.clipAction(actionClip),
@@ -292,7 +283,7 @@
             zombies.push({ 
                 model, mixer, actions, 
                 hp: 10, isDead: false, 
-                speed: isRunner ? 4.5 : 1.8 // ซอมบี้ปกติเดิน 1.8 ซอมบี้วิ่งเร็ว 4.5
+                speed: isRunner ? 5.0 : 2.5 // ปรับค่าความเร็วเดินและวิ่งให้ชัดเจนขึ้น
             });
         }
 
@@ -312,13 +303,16 @@
             }
         }
 
+        let controls;
         function animate() {
             requestAnimationFrame(animate);
             if(!isReady) return;
+            
+            // คำนวณความเร็วเฟรมเรตจริง (Delta Time)
             const delta = clock.getDelta();
 
             if(player) {
-                // การเคลื่อนไหวตัวผู้เล่น
+                // เคลื่อนที่ตามทิศทางกล้องหัน
                 if(moveVec.length() > 0.1 && !stats.isAttacking) {
                     player.position.addScaledVector(moveVec, stats.speed * delta);
                     const targetAngle = Math.atan2(moveVec.x, moveVec.z);
@@ -335,19 +329,17 @@
                     }
                 }
 
-                // กล้องติดตามตัวละครแบบสมูท
+                // กล้องเดินติดตามผู้เล่นแบบสมูท
                 controls.target.lerp(player.position, 0.1);
                 controls.update();
 
-                // การทำงานของผู้ช่วย (Companion)
+                // หุ่นผู้ช่วยบินตาม
                 if(companion) {
-                    // เดินตามตัวผู้เล่นแบบมีระยะห่าง
                     const targetPos = player.position.clone().add(new THREE.Vector3(-1.5, 0, 1.5));
                     companion.position.lerp(targetPos, 0.08);
                     companion.lookAt(player.position);
                     if(companionMixer) companionMixer.update(delta);
 
-                    // ออโต้ช่วยยิง
                     if(Date.now() - lastShot > 800) {
                         let target = getNearestZombie(15);
                         if(target) {
@@ -357,17 +349,17 @@
                     }
                 }
 
-                // ส่งตำแหน่งไป Firebase
                 update(ref(db, 'players/' + PLAYER_ID), { x: player.position.x, z: player.position.z, ry: player.rotation.y });
             }
 
             if(playerMixer) playerMixer.update(delta);
 
-            // อัปเดตซอมบี้
+            // อัปเดตการเคลื่อนไหวของซอมบี้ (มีท่าทางและเคลื่อนไหวแน่นอน!)
             zombies.forEach((z) => {
                 z.mixer.update(delta);
                 if(!z.isDead) {
                     const dir = new THREE.Vector3().subVectors(player.position, z.model.position).normalize();
+                    // บังคับการเคลื่อนไหวตามตำแหน่งและเวลากลางจริง
                     z.model.position.addScaledVector(dir, z.speed * delta);
                     z.model.lookAt(player.position);
                     
@@ -378,7 +370,7 @@
                 }
             });
 
-            // อัปเดตกระสุนและเช็คการชนกระสุนปืนพก
+            // อัปเดตกระสุนปืนพก
             for(let i=bullets.length-1; i>=0; i--) {
                 const b = bullets[i];
                 b.mesh.position.addScaledVector(b.dir, 35 * delta);
@@ -394,7 +386,7 @@
                 if(b.life <= 0) { scene.remove(b.mesh); bullets.splice(i, 1); }
             }
 
-            if(Math.random() < 0.015) spawnZombie();
+            if(Math.random() < 0.012) spawnZombie();
             updateUI();
             renderer.render(scene, camera);
         }
@@ -428,11 +420,6 @@
                 moveVec.set(x, 0, z).normalize();
             }, 10);
 
-            // ตรวจจับอุปกรณ์พกพาเพื่อเปิดปุ่มฟัน
-            if ('ontouchstart' in window) {
-                document.getElementById('attack-btn').style.display = 'flex';
-            }
-
             nipplejs.create({ zone: document.getElementById('joystick-zone'), mode: 'static', position: {left: '60px', bottom: '60px'}, color: 'green' })
             .on('move', (e, d) => moveVec.set(Math.cos(d.angle.radian), 0, -Math.sin(d.angle.radian)))
             .on('end', () => moveVec.set(0,0,0));
@@ -443,7 +430,11 @@
             document.getElementById('coin-val').innerText = stats.money;
         }
 
-        clock = new THREE.Clock();
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
