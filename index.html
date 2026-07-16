@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Meadow Survivor - Smooth 60FPS</title>
+    <title>Meadow Survivor - Combat Edition</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
@@ -11,37 +11,60 @@
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Orbitron', sans-serif; background: #87ceeb; user-select: none; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        .hud { position: absolute; padding: 15px; pointer-events: auto; background: rgba(255,255,255,0.85); border: 2px solid #2d5a27; border-radius: 12px; color: #2d5a27; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .hud { position: absolute; padding: 15px; pointer-events: auto; background: rgba(255,255,255,0.9); border: 2px solid #2d5a27; border-radius: 12px; color: #2d5a27; }
         .top-left { top: 20px; left: 20px; }
-        #hp-bar { width: 220px; height: 12px; background: #ddd; border: 1px solid #2d5a27; margin-top: 5px; border-radius: 10px; overflow: hidden; }
-        #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #ff4b2b, #ff416c); transition: width 0.15s ease-out; }
+        #hp-bar { width: 200px; height: 12px; background: #ddd; border: 1px solid #2d5a27; margin-top: 5px; border-radius: 10px; overflow: hidden; }
+        #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #ff4b2b, #ff416c); transition: 0.1s; }
         #joystick-zone { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; pointer-events: auto; }
-        #loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: flex; justify-content: center; align-items: center; z-index: 100; flex-direction: column; }
-        .overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border: 4px solid #ff416c; text-align: center; display: none; pointer-events: auto; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-        button { background: #2d5a27; border: none; color: white; padding: 12px 25px; font-family: 'Orbitron'; cursor: pointer; border-radius: 8px; font-weight: bold; transition: 0.2s; }
-        button:hover { background: #1c3d18; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        
+        /* Mobile Attack Button */
+        #attack-btn { position: absolute; bottom: 50px; right: 50px; width: 80px; height: 80px; background: #ff416c; border: 3px solid white; border-radius: 50%; color: white; font-family: 'Orbitron'; font-weight: bold; font-size: 14px; cursor: pointer; pointer-events: auto; display: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        
+        #menu-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 100; flex-direction: column; }
+        .weapon-card { background: rgba(255,255,255,0.1); border: 2px solid var(--neon-blue); padding: 20px; margin: 10px; cursor: pointer; border-radius: 10px; transition: 0.3s; width: 250px; text-align: center; }
+        .weapon-card:hover { background: #00f2ff; color: black; box-shadow: 0 0 20px #00f2ff; }
+        
+        .overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border: 4px solid #ff416c; text-align: center; display: none; pointer-events: auto; border-radius: 20px; }
+        button { background: #2d5a27; border: none; color: white; padding: 12px 25px; font-family: 'Orbitron'; cursor: pointer; border-radius: 8px; font-weight: bold; }
+        .instruction { position: absolute; bottom: 20px; right: 20px; font-size: 10px; color: #2d5a27; opacity: 0.7; }
     </style>
 </head>
 <body>
 
-    <div id="loading-screen">
-        <div style="border: 5px solid #f3f3f3; border-top: 5px solid #2d5a27; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;"></div>
-        <p style="margin-top: 15px; color: #2d5a27; font-weight: bold; letter-spacing: 2px;">OPTIMIZING GRAPHICS ENGINE...</p>
+    <!-- หน้าจอเลือกอาวุธเริ่มต้น -->
+    <div id="menu-screen">
+        <h1 style="color: #00f2ff; letter-spacing: 3px; margin-bottom: 30px;">CHOOSE YOUR LOADOUT</h1>
+        <div style="display: flex; flex-wrap: wrap; justify-content: center;">
+            <div class="weapon-card" onclick="selectWeapon('melee')">
+                <h2>⚔️ MELEE (มีด)</h2>
+                <p>โจมตีระยะใกล้เป็นวงกว้าง ดาเมจสูงมาก</p>
+            </div>
+            <div class="weapon-card" onclick="selectWeapon('pistol')">
+                <h2>🔫 PISTOL (ปืนพก)</h2>
+                <p>ยิงกระสุนพลังงานโจมตีจากระยะปลอดภัย</p>
+            </div>
+            <div class="weapon-card" onclick="selectWeapon('companion')">
+                <h2>🤖 COMPANION (โดรน)</h2>
+                <p>รับโดรนจิ๋วช่วยยิงเป้าหมายอัตโนมัติ</p>
+            </div>
+        </div>
     </div>
 
     <div id="ui-layer">
         <div class="hud top-left">
-            <div style="font-weight: bold; font-size: 11px; letter-spacing: 1px;">SURVIVOR STATUS</div>
+            <div style="font-weight: bold; font-size: 11px;">NANOBOT STATUS [<span id="weapon-name">NONE</span>]</div>
             <div id="hp-bar"><div id="hp-fill"></div></div>
-            <div style="margin-top:10px; font-size: 20px; font-weight: bold;">🪙 <span id="coin-val">0</span></div>
-            <div style="font-size: 10px; margin-top:5px; opacity: 0.7;">CONNECTED SURVIVORS: <span id="online-val">1</span></div>
+            <div style="margin-top:10px; font-size: 18px; font-weight: bold;">🪙 <span id="coin-val">0</span></div>
+            <div style="font-size: 10px; margin-top:5px; opacity: 0.7;">SURVIVORS ONLINE: <span id="online-val">1</span></div>
         </div>
+        
+        <div id="attack-btn" onclick="performAttack()">ATTACK</div>
+        
         <div id="game-over" class="overlay">
-            <h1 style="color:#ff416c; margin-top: 0;">LINK INTERRUPTED</h1>
-            <p style="color:#666;">Your nanobot system has been compromised.</p>
-            <button onclick="location.reload()">RE-ESTABLISH LINK</button>
+            <h1 style="color:#ff416c; margin-top:0;">LINK BROKEN</h1>
+            <button onclick="location.reload()">RESPAWN</button>
         </div>
+        <div class="instruction">CLICK LEFT: ATTACK | CLICK RIGHT & DRAG: ROTATE CAMERA | WASD: MOVE</div>
     </div>
 
     <div id="joystick-zone"></div>
@@ -58,11 +81,12 @@
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue, onDisconnect, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // --- FIREBASE CONFIG ---
+        // Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyC1SLWvio-oYibt4pzY8xVZRErHAbMLqbk",
             authDomain: "ssr-zombie.firebaseapp.com",
@@ -81,73 +105,165 @@
             zombie: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/Soldier.glb'
         };
 
-        let scene, camera, renderer, clock, player;
-        let playerMixer, playerActions = {};
+        let scene, camera, renderer, clock, controls, player;
+        let playerMixer, playerActions = {}, currentWeapon = 'melee';
         let zombieBase, zombieAnims, isReady = false;
         let otherPlayers = {}, zombies = [], bullets = [];
         let moveVec = new THREE.Vector3();
-        let stats = { hp: 100, money: 0, speed: 10 }; // ปรับ Base Speed สำหรับระบบ Delta Time
+        let stats = { hp: 100, money: 0, speed: 10, isAttacking: false };
         let lastShot = 0;
 
-        // Shared Geometry/Material เพื่อประหยัด CPU/GPU
-        const bulletGeometry = new THREE.SphereGeometry(0.15, 8, 8);
-        const bulletMaterial = new THREE.MeshBasicMaterial({ color: 0xffea00 });
+        // Companion
+        let companion, companionMixer, companionAction;
+
+        window.selectWeapon = function(type) {
+            currentWeapon = type;
+            document.getElementById('weapon-name').innerText = type.toUpperCase();
+            document.getElementById('menu-screen').style.display = 'none';
+            init();
+        }
 
         async function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xb0e0e6); // สีท้องฟ้าสดใส (Powder Blue)
+            scene.background = new THREE.Color(0xa0cfec);
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 1000);
-            
+            camera.position.set(0, 10, 12);
+
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // จำกัด Pixel Ratio เพื่อความลื่นไหลบนมือถือจอความละเอียดสูง
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
 
-            // Lighting
-            scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-            const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+            // Controls ปรับแต่งปุ่มคลิกขวาหมุนมุมกล้อง
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2.2;
+            
+            // คลิกซ้ายยิง/โจมตี คลิกขวาหมุนกล้อง
+            controls.mouseButtons = {
+                LEFT: THREE.MOUSE.NONE, // ปิดใช้งานหมุนด้วยคลิกซ้าย
+                MIDDLE: THREE.MOUSE.DOLLY,
+                RIGHT: THREE.MOUSE.ROTATE // ใช้คลิกขวาในการหมุนกล้อง
+            };
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            const sun = new THREE.DirectionalLight(0xffffff, 1.2);
             sun.position.set(30, 80, 30);
             sun.castShadow = true;
             scene.add(sun);
 
             // Ground
-            const grassGeo = new THREE.PlaneGeometry(1000, 1000);
-            const grassMat = new THREE.MeshLambertMaterial({ color: 0x556b2f }); // สีเขียวทุ่งหญ้าธรรมชาติ (Dark Olive Green)
-            const ground = new THREE.Mesh(grassGeo, grassMat);
-            ground.rotation.x = -Math.PI / 2;
-            ground.receiveShadow = true;
-            scene.add(ground);
+            const grass = new THREE.Mesh(
+                new THREE.PlaneGeometry(1000, 1000),
+                new THREE.MeshLambertMaterial({ color: 0x4f7942 })
+            );
+            grass.rotation.x = -Math.PI / 2;
+            grass.receiveShadow = true;
+            scene.add(grass);
 
             const loader = new GLTFLoader();
 
-            try {
-                // Load Zombie
-                const zGltf = await loader.loadAsync(MODELS.zombie);
-                zombieBase = zGltf.scene;
-                zombieAnims = zGltf.animations;
+            // Load Zombie Base
+            const zGltf = await loader.loadAsync(MODELS.zombie);
+            zombieBase = zGltf.scene;
+            zombieAnims = zGltf.animations;
 
-                // Load Player
-                const pGltf = await loader.loadAsync(MODELS.player);
-                player = pGltf.scene;
-                player.scale.set(0.4, 0.4, 0.4);
-                player.traverse(n => { if(n.isMesh) n.castShadow = true; });
-                scene.add(player);
+            // Load Player
+            const pGltf = await loader.loadAsync(MODELS.player);
+            player = pGltf.scene;
+            player.scale.set(0.4, 0.4, 0.4);
+            player.traverse(n => { if(n.isMesh) n.castShadow = true; });
+            scene.add(player);
 
-                playerMixer = new THREE.AnimationMixer(player);
-                pGltf.animations.forEach(a => {
-                    if(a.name === 'Idle') playerActions.idle = playerMixer.clipAction(a);
-                    if(a.name === 'Running') playerActions.run = playerMixer.clipAction(a);
+            playerMixer = new THREE.AnimationMixer(player);
+            pGltf.animations.forEach(a => {
+                if(a.name === 'Idle') playerActions.idle = playerMixer.clipAction(a);
+                if(a.name === 'Running') playerActions.run = playerMixer.clipAction(a);
+                if(a.name === 'Punch') playerActions.attack = playerMixer.clipAction(a); // ใช้ท่า Punch เป็นการโจมตี
+            });
+            playerActions.idle?.play();
+
+            // สร้าง Companion หากเลือกคลาสโดรน
+            if(currentWeapon === 'companion') {
+                createCompanion(pGltf);
+            }
+
+            // Bind Event คลิกซ้ายในการยิง/ฟัน
+            window.addEventListener('mousedown', (e) => {
+                if(e.button === 0) performAttack(); // 0 = คลิกซ้าย
+            });
+
+            isReady = true;
+            startMultiplayerSync();
+            setupInput();
+            animate();
+        }
+
+        function createCompanion(gltf) {
+            companion = SkeletonUtils.clone(gltf.scene);
+            companion.scale.set(0.18, 0.18, 0.18); // ขนาดจิ๋ว
+            companion.traverse(n => { if(n.isMesh) n.material.emissive = new THREE.Color(0x00f2ff); });
+            scene.add(companion);
+
+            companionMixer = new THREE.AnimationMixer(companion);
+            const runClip = gltf.animations.find(a => a.name === 'Running');
+            if(runClip) {
+                companionAction = companionMixer.clipAction(runClip);
+                companionAction.play();
+            }
+        }
+
+        function performAttack() {
+            if(!player || stats.isAttacking) return;
+
+            stats.isAttacking = true;
+            playerActions.run?.stop();
+            playerActions.idle?.stop();
+            playerActions.attack?.reset().setLoop(THREE.LoopOnce).play();
+
+            // ล้างสถานะเมื่อเอนิเมชั่นจบ
+            setTimeout(() => {
+                stats.isAttacking = false;
+            }, 400);
+
+            // คำนวณความเสียหาย
+            if(currentWeapon === 'melee') {
+                // โจมตีประชิด (AOE Damage)
+                zombies.forEach((z) => {
+                    if(z.model.position.distanceTo(player.position) < 3.5) {
+                        applyDamageToZombie(z, 15);
+                    }
                 });
-                playerActions.idle?.play();
+            } else if(currentWeapon === 'pistol') {
+                // ค้นหาเป้าหมายและยิง
+                let target = getNearestZombie(20);
+                if(target) {
+                    shootBullet(target.position);
+                }
+            }
+        }
 
-                document.getElementById('loading-screen').style.display = 'none';
-                isReady = true;
-                startMultiplayerSync();
-                setupInput();
-                animate();
-            } catch (e) { console.error("Asset load failure:", e); }
+        function shootBullet(targetPos) {
+            const b = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshBasicMaterial({color: 0xffea00}));
+            b.position.copy(player.position).y = 1.0;
+            const dir = new THREE.Vector3().subVectors(targetPos, player.position).normalize();
+            scene.add(b);
+            bullets.push({ mesh: b, dir, life: 60 });
+        }
+
+        function getNearestZombie(maxDist) {
+            let target = null;
+            let minDist = maxDist;
+            zombies.forEach(z => {
+                if(!z.isDead) {
+                    const dist = z.model.position.distanceTo(player.position);
+                    if(dist < minDist) { minDist = dist; target = z.model; }
+                }
+            });
+            return target;
         }
 
         function spawnZombie() {
@@ -160,17 +276,40 @@
             scene.add(model);
             
             const mixer = new THREE.AnimationMixer(model);
-            const walkClip = zombieAnims.find(an => an.name === 'Walk');
+            const isRunner = Math.random() > 0.6; // 40% มีโอกาสสุ่มเจอซอมบี้วิ่งเร็ว
+            
+            const clipName = isRunner ? 'Run' : 'Walk';
+            const actionClip = zombieAnims.find(an => an.name === clipName);
             const deadClip = zombieAnims.find(an => an.name === 'Dead');
 
             const actions = {
-                walk: mixer.clipAction(walkClip),
+                move: mixer.clipAction(actionClip),
                 death: mixer.clipAction(deadClip)
             };
             
-            actions.walk.play();
+            actions.move.play();
             
-            zombies.push({ model, mixer, actions, hp: 10, isDead: false });
+            zombies.push({ 
+                model, mixer, actions, 
+                hp: 10, isDead: false, 
+                speed: isRunner ? 4.5 : 1.8 // ซอมบี้ปกติเดิน 1.8 ซอมบี้วิ่งเร็ว 4.5
+            });
+        }
+
+        function applyDamageToZombie(z, dmg) {
+            z.hp -= dmg;
+            if(z.hp <= 0 && !z.isDead) {
+                z.isDead = true;
+                z.actions.move.fadeOut(0.2);
+                z.actions.death.reset().fadeIn(0.2).setLoop(THREE.LoopOnce).play();
+                z.actions.death.clampWhenFinished = true;
+                stats.money += 10;
+                setTimeout(() => {
+                    scene.remove(z.model);
+                    const idx = zombies.indexOf(z);
+                    if(idx > -1) zombies.splice(idx, 1);
+                }, 1800);
+            }
         }
 
         function animate() {
@@ -179,119 +318,85 @@
             const delta = clock.getDelta();
 
             if(player) {
-                // เคลื่อนที่แบบสมูทโดยใช้ Delta Time
-                if(moveVec.length() > 0.1) {
+                // การเคลื่อนไหวตัวผู้เล่น
+                if(moveVec.length() > 0.1 && !stats.isAttacking) {
                     player.position.addScaledVector(moveVec, stats.speed * delta);
-                    
-                    // ปรับทิศทางการหันหน้าอย่างนุ่มนวล (Smooth Rotation Lerp)
                     const targetAngle = Math.atan2(moveVec.x, moveVec.z);
                     player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, targetAngle, 0.15);
 
                     if(!playerActions.run?.isRunning()) {
-                        playerActions.idle?.fadeOut(0.2);
-                        playerActions.run?.reset().fadeIn(0.2).play();
+                        playerActions.idle?.stop();
+                        playerActions.run?.play();
                     }
-                } else {
+                } else if(!stats.isAttacking) {
                     if(!playerActions.idle?.isRunning()) {
-                        playerActions.run?.fadeOut(0.2);
-                        playerActions.idle?.reset().fadeIn(0.2).play();
+                        playerActions.run?.stop();
+                        playerActions.idle?.play();
                     }
                 }
 
-                // กล้องเคลื่อนตามผู้เล่นอย่างสมูท (Lerp Camera)
-                const camTarget = new THREE.Vector3(player.position.x, player.position.y + 7, player.position.z + 10);
-                camera.position.lerp(camTarget, 0.08); // ค่าความเร็วในการตามของกล้อง
-                camera.lookAt(player.position);
+                // กล้องติดตามตัวละครแบบสมูท
+                controls.target.lerp(player.position, 0.1);
+                controls.update();
 
-                // ส่งตำแหน่งขึ้น Firebase
-                update(ref(db, 'players/' + PLAYER_ID), { x: player.position.x, z: player.position.z, ry: player.rotation.y });
+                // การทำงานของผู้ช่วย (Companion)
+                if(companion) {
+                    // เดินตามตัวผู้เล่นแบบมีระยะห่าง
+                    const targetPos = player.position.clone().add(new THREE.Vector3(-1.5, 0, 1.5));
+                    companion.position.lerp(targetPos, 0.08);
+                    companion.lookAt(player.position);
+                    if(companionMixer) companionMixer.update(delta);
 
-                // ค้นหาเป้าหมายและยิงอัตโนมัติ
-                if(Date.now() - lastShot > 400) {
-                    let target = null;
-                    let minDist = 18;
-                    zombies.forEach(z => { 
-                        if(!z.isDead) {
-                            const dist = z.model.position.distanceTo(player.position);
-                            if (dist < minDist) { minDist = dist; target = z.model; }
+                    // ออโต้ช่วยยิง
+                    if(Date.now() - lastShot > 800) {
+                        let target = getNearestZombie(15);
+                        if(target) {
+                            shootBullet(target.position);
+                            lastShot = Date.now();
                         }
-                    });
-                    if(target) { shoot(target.position); lastShot = Date.now(); }
+                    }
                 }
+
+                // ส่งตำแหน่งไป Firebase
+                update(ref(db, 'players/' + PLAYER_ID), { x: player.position.x, z: player.position.z, ry: player.rotation.y });
             }
 
             if(playerMixer) playerMixer.update(delta);
 
-            // อัปเดตฝั่งซอมบี้
-            zombies.forEach((z, i) => {
+            // อัปเดตซอมบี้
+            zombies.forEach((z) => {
                 z.mixer.update(delta);
-
                 if(!z.isDead) {
-                    // ซอมบี้เดินช้าแบบสมูทโดยใช้ Delta Time
                     const dir = new THREE.Vector3().subVectors(player.position, z.model.position).normalize();
-                    z.model.position.addScaledVector(dir, 1.8 * delta); // 1.8 คือความเร็วเดิน
+                    z.model.position.addScaledVector(dir, z.speed * delta);
+                    z.model.lookAt(player.position);
                     
-                    // ปรับทิศทางซอมบี้ให้ค่อยๆ หันหาผู้เล่น
-                    const targetAngle = Math.atan2(dir.x, dir.z);
-                    z.model.rotation.y = THREE.MathUtils.lerp(z.model.rotation.y, targetAngle, 0.1);
-                    
-                    // เช็คการชนตัวผู้เล่น
                     if(z.model.position.distanceTo(player.position) < 1.1) {
-                        stats.hp -= 15 * delta; // ลดเลือดตามเวลาจริง
+                        stats.hp -= 15 * delta;
                         if(stats.hp <= 0) document.getElementById('game-over').style.display='block';
                     }
                 }
-
-                // เช็คการถูกโจมตี
-                bullets.forEach((b, bi) => {
-                    if(!z.isDead && b.mesh.position.distanceTo(z.model.position) < 1.3) {
-                        z.hp -= 5; 
-                        b.life = 0; // ทำลายกระสุน
-                        
-                        if(z.hp <= 0) {
-                            z.isDead = true;
-                            // การเปลี่ยนท่าทางแบบไร้รอยต่อ (Seamless Animation Crossfade)
-                            z.actions.walk.fadeOut(0.2);
-                            z.actions.death.reset().fadeIn(0.2).setLoop(THREE.LoopOnce).play();
-                            z.actions.death.clampWhenFinished = true;
-                            stats.money += 10;
-                            
-                            // นำโมเดลออกจากฉากเมื่อล้มตายสนิท
-                            setTimeout(() => {
-                                scene.remove(z.model);
-                                zombies.splice(i, 1);
-                            }, 1800);
-                        }
-                    }
-                });
             });
 
-            // ควบคุมการเกิดซอมบี้
+            // อัปเดตกระสุนและเช็คการชนกระสุนปืนพก
+            for(let i=bullets.length-1; i>=0; i--) {
+                const b = bullets[i];
+                b.mesh.position.addScaledVector(b.dir, 35 * delta);
+                b.life--;
+
+                zombies.forEach((z) => {
+                    if(!z.isDead && b.mesh.position.distanceTo(z.model.position) < 1.5) {
+                        applyDamageToZombie(z, 5);
+                        b.life = 0;
+                    }
+                });
+
+                if(b.life <= 0) { scene.remove(b.mesh); bullets.splice(i, 1); }
+            }
+
             if(Math.random() < 0.015) spawnZombie();
-            updateBullets(delta);
             updateUI();
             renderer.render(scene, camera);
-        }
-
-        function shoot(targetPos) {
-            const b = new THREE.Mesh(bulletGeometry, bulletMaterial);
-            b.position.copy(player.position).y = 1.0;
-            const dir = new THREE.Vector3().subVectors(targetPos, player.position).normalize();
-            scene.add(b);
-            bullets.push({ mesh: b, dir, life: 60 });
-        }
-
-        function updateBullets(delta) {
-            for(let i = bullets.length - 1; i >= 0; i--) {
-                const b = bullets[i];
-                b.mesh.position.addScaledVector(b.dir, 35 * delta); // ความเร็วกระสุนคำนวณตามเวลาจริง
-                b.life--;
-                if(b.life <= 0) {
-                    scene.remove(b.mesh);
-                    // ไม่ล้าง Geometries และ Materials ตรงนี้เพื่อเก็บไว้ให้กระสุนลูกถัดไปใช้งาน (Optimized Memory)
-                    bullets.splice(i, 1);
-                }
-            }
         }
 
         function startMultiplayerSync() {
@@ -316,7 +421,6 @@
             window.addEventListener('keydown', e => keys[e.code] = true);
             window.addEventListener('keyup', e => keys[e.code] = false);
             
-            // คำนวณเวกเตอร์ความแรงจากการเดิน
             setInterval(() => {
                 let x = 0, z = 0;
                 if(keys['KeyW']) z = -1; if(keys['KeyS']) z = 1;
@@ -324,7 +428,11 @@
                 moveVec.set(x, 0, z).normalize();
             }, 10);
 
-            // Joystick แบบสมูท
+            // ตรวจจับอุปกรณ์พกพาเพื่อเปิดปุ่มฟัน
+            if ('ontouchstart' in window) {
+                document.getElementById('attack-btn').style.display = 'flex';
+            }
+
             nipplejs.create({ zone: document.getElementById('joystick-zone'), mode: 'static', position: {left: '60px', bottom: '60px'}, color: 'green' })
             .on('move', (e, d) => moveVec.set(Math.cos(d.angle.radian), 0, -Math.sin(d.angle.radian)))
             .on('end', () => moveVec.set(0,0,0));
@@ -336,12 +444,6 @@
         }
 
         clock = new THREE.Clock();
-        init();
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
 </body>
 </html>
