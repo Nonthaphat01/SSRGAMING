@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SSR Zombie - Multiplayer</title>
+    
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --neon-blue: #00f2ff; --neon-pink: #ff007b; --neon-green: #39ff14; --neon-yellow: #fff200; }
+        body { margin: 0; overflow: hidden; font-family: 'Orbitron', sans-serif; background: #000; color: #fff; user-select: none; }
+        
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .hud { position: absolute; padding: 20px; pointer-events: auto; background: rgba(0,0,0,0.6); border: 1px solid var(--neon-blue); border-radius: 0 0 20px 0; }
+        .top-right { top: 10px; right: 10px; border-radius: 0 0 0 20px; border-color: var(--neon-pink); }
+        
+        #hp-container { width: 200px; height: 12px; background: #222; border: 1px solid var(--neon-blue); margin-top: 5px; }
+        #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #0088ff, var(--neon-blue)); transition: 0.3s; }
+        
+        .stat-val { font-size: 18px; font-weight: bold; color: var(--neon-blue); text-shadow: 0 0 10px var(--neon-blue); }
+        #joystick-zone { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; pointer-events: auto; }
+        
+        .msg { position: absolute; bottom: 20px; width: 100%; text-align: center; color: var(--neon-green); font-size: 12px; text-transform: uppercase; }
+        .overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(10,15,25,0.95); border: 2px solid var(--neon-blue); padding: 40px; text-align: center; display: none; pointer-events: auto; }
+        
+        button { background: transparent; border: 1px solid var(--neon-blue); color: #fff; padding: 10px 20px; font-family: 'Orbitron'; cursor: pointer; transition: 0.3s; margin-top: 20px; }
+        button:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 20px var(--neon-blue); }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div class="hud">
+            <div style="font-size: 10px; color: var(--neon-blue)">PLAYER SYSTEM</div>
+            <div id="hp-container"><div id="hp-fill"></div></div>
+            <div style="margin-top:10px">
+                LEVEL: <span id="lvl-txt" class="stat-val">1</span> | 
+                ATK: <span id="atk-txt" class="stat-val">5</span>
+            </div>
+        </div>
+
+        <div class="hud top-right">
+            <div style="font-size: 10px; color: var(--neon-pink)">SERVER STATUS</div>
+            <div>CREDITS: <span id="coin-txt" class="stat-val" style="color:var(--neon-yellow)">0</span></div>
+            <div style="font-size: 12px; margin-top:5px">PLAYERS ONLINE: <span id="online-txt">1</span></div>
+        </div>
+
+        <div id="game-over" class="overlay">
+            <h1 style="color:var(--neon-pink)">CONNECTION LOST</h1>
+            <p>Your System was Destroyed</p>
+            <button onclick="location.reload()">REBOOT SYSTEM</button>
+        </div>
+
+        <div class="msg" id="buff-msg"></div>
+    </div>
+
+    <div id="joystick-zone"></div>
+
+    <script type="module">
+        // Firebase Setup using your provided Config
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue, onDisconnect, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC1SLWvio-oYibt4pzY8xVZRErHAbMLqbk",
+            authDomain: "ssr-zombie.firebaseapp.com",
+            projectId: "ssr-zombie",
+            storageBucket: "ssr-zombie.firebasestorage.app",
+            messagingSenderId: "675922375054",
+            appId: "1:675922375054:web:660c59fdf774f1e94c74df",
+            // สร้าง databaseURL อัตโนมัติจาก Project ID
+            databaseURL: "https://ssr-zombie-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // --- GAME ENGINE ---
+        let scene, camera, renderer, clock, player;
+        let playerId = "Player_" + Math.floor(Math.random() * 1000);
+        let otherPlayers = {};
+        let zombies = [], bullets = [], items = [];
+        let moveVec = { x: 0, z: 0 };
+        
+        let stats = { hp: 100, maxHp: 100, atk: 5, level: 1, money: 0, speed: 0.15, fireRate: 500 };
+        let lastShot = 0;
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x020205);
+            scene.fog = new THREE.FogExp2(0x020205, 0.05);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            // Lighting
+            scene.add(new THREE.AmbientLight(0x404040, 2));
+            const directionalLight = new THREE.DirectionalLight(0x00f2ff, 1);
+            directionalLight.position.set(5, 10, 7);
+            scene.add(directionalLight);
+
+            // Ground Grid
+            const grid = new THREE.GridHelper(200, 100, 0x00f2ff, 0x050505);
+            scene.add(grid);
+
+            // Local Player Mesh
+            const geo = new THREE.BoxGeometry(1, 1.5, 1);
+            const mat = new THREE.MeshPhongMaterial({ color: 0x00f2ff, emissive: 0x00f2ff, emissiveIntensity: 0.5 });
+            player = new THREE.Mesh(geo, mat);
+            player.position.y = 0.75;
+            scene.add(player);
+
+            // Initial Firebase Entry
+            const playerRef = ref(db, 'players/' + playerId);
+            set(playerRef, { x: 0, z: 0, hp: 100, score: 0 });
+            onDisconnect(playerRef).remove();
+
+            // Sync Players from Firebase
+            onValue(ref(db, 'players'), (snapshot) => {
+                const data = snapshot.val();
+                if(!data) return;
+                
+                document.getElementById('online-txt').innerText = Object.keys(data).length;
+
+                Object.keys(data).forEach(id => {
+                    if(id === playerId) return;
+                    if(!otherPlayers[id]) {
+                        const pGeo = new THREE.BoxGeometry(1, 1.5, 1);
+                        const pMat = new THREE.MeshPhongMaterial({ color: 0xff007b });
+                        const pMesh = new THREE.Mesh(pGeo, pMat);
+                        scene.add(pMesh);
+                        otherPlayers[id] = pMesh;
+                    }
+                    otherPlayers[id].position.set(data[id].x, 0.75, data[id].z);
+                });
+
+                // ลบผู้เล่นที่หายไป
+                Object.keys(otherPlayers).forEach(id => {
+                    if(!data[id]) {
+                        scene.remove(otherPlayers[id]);
+                        delete otherPlayers[id];
+                    }
+                });
+            });
+
+            setupControls();
+            clock = new THREE.Clock();
+            animate();
+        }
+
+        function setupControls() {
+            // WASD PC
+            const keys = {};
+            window.addEventListener('keydown', e => keys[e.code] = true);
+            window.addEventListener('keyup', e => keys[e.code] = false);
+
+            setInterval(() => {
+                moveVec = { x: 0, z: 0 };
+                if(keys['KeyW']) moveVec.z = -1;
+                if(keys['KeyS']) moveVec.z = 1;
+                if(keys['KeyA']) moveVec.x = -1;
+                if(keys['KeyD']) moveVec.x = 1;
+            }, 10);
+
+            // Mobile Joystick
+            nipplejs.create({
+                zone: document.getElementById('joystick-zone'),
+                mode: 'static',
+                position: { left: '70px', bottom: '70px' },
+                color: 'cyan'
+            }).on('move', (e, data) => {
+                moveVec.x = Math.cos(data.angle.radian) * data.force;
+                moveVec.z = -Math.sin(data.angle.radian) * data.force;
+            }).on('end', () => moveVec = { x: 0, z: 0 });
+        }
+
+        // --- ITEM DROP SYSTEM ---
+        function spawnItem(pos) {
+            const rand = Math.random();
+            let type = "";
+            let color = 0xffffff;
+
+            if(rand < 0.1) { type = "HEAL"; color = 0x39ff14; } // 10%
+            else if(rand < 0.2) { type = "POWER"; color = 0xff007b; } // 10%
+            else { type = "COIN"; color = 0xfff200; } // 80%
+
+            const geo = new THREE.OctahedronGeometry(0.4);
+            const mat = new THREE.MeshPhongMaterial({ color, emissive: color });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(pos.x, 0.5, pos.z);
+            mesh.userData = { type };
+            scene.add(mesh);
+            items.push(mesh);
+        }
+
+        function updateItems() {
+            for(let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                item.rotation.y += 0.05;
+                if(player.position.distanceTo(item.position) < 1.2) {
+                    const type = item.userData.type;
+                    if(type === "HEAL") { stats.hp = Math.min(stats.maxHp, stats.hp + 30); showMsg("HEALTH RESTORED"); }
+                    if(type === "POWER") { stats.atk += 2; showMsg("ATTACK POWER UP"); }
+                    if(type === "COIN") { stats.money += 10; checkLevel(); }
+                    
+                    scene.remove(item);
+                    items.splice(i, 1);
+                }
+            }
+        }
+
+        function showMsg(txt) {
+            const el = document.getElementById('buff-msg');
+            el.innerText = txt;
+            setTimeout(() => el.innerText = "", 2000);
+        }
+
+        function checkLevel() {
+            if(stats.money >= stats.level * 50) {
+                stats.level++;
+                stats.maxHp += 20;
+                stats.hp = stats.maxHp;
+                showMsg("LEVEL UP!");
+            }
+        }
+
+        // --- CORE LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            // Move Player
+            player.position.x += moveVec.x * stats.speed;
+            player.position.z += moveVec.z * stats.speed;
+            if(moveVec.x !== 0 || moveVec.z !== 0) player.rotation.y = Math.atan2(moveVec.x, moveVec.z);
+
+            // Sync to Firebase
+            update(ref(db, 'players/' + playerId), {
+                x: player.position.x,
+                z: player.position.z,
+                hp: stats.hp
+            });
+
+            // Auto Shoot nearest
+            if(Date.now() - lastShot > stats.fireRate) {
+                let target = null;
+                let minDist = 15;
+                zombies.forEach(z => {
+                    const d = player.position.distanceTo(z.mesh.position);
+                    if(d < minDist) { minDist = d; target = z; }
+                });
+                if(target) {
+                    shoot(target.mesh.position);
+                    lastShot = Date.now();
+                }
+            }
+
+            camera.position.lerp(new THREE.Vector3(player.position.x, player.position.y + 15, player.position.z + 12), 0.1);
+            camera.lookAt(player.position);
+
+            updateZombies();
+            updateBullets();
+            updateItems();
+            updateUI();
+
+            renderer.render(scene, camera);
+        }
+
+        function shoot(targetPos) {
+            const bGeo = new THREE.SphereGeometry(0.2);
+            const bMat = new THREE.MeshBasicMaterial({ color: 0xfff200 });
+            const mesh = new THREE.Mesh(bGeo, bMat);
+            mesh.position.copy(player.position).y = 1;
+            const dir = new THREE.Vector3().subVectors(targetPos, player.position).normalize();
+            scene.add(mesh);
+            bullets.push({ mesh, dir, life: 100 });
+        }
+
+        function updateZombies() {
+            if(zombies.length < 5 + stats.level) {
+                const angle = Math.random() * Math.PI * 2;
+                const x = player.position.x + Math.cos(angle) * 25;
+                const z = player.position.z + Math.sin(angle) * 25;
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(1,1.5,1), new THREE.MeshPhongMaterial({color: 0xff4400}));
+                mesh.position.set(x, 0.75, z);
+                scene.add(mesh);
+                zombies.push({ mesh, hp: 10 + (stats.level * 2) });
+            }
+
+            for(let i = zombies.length-1; i >= 0; i--) {
+                const z = zombies[i];
+                const dir = new THREE.Vector3().subVectors(player.position, z.mesh.position).normalize();
+                z.mesh.position.addScaledVector(dir, 0.04 + (stats.level * 0.005));
+                
+                if(z.mesh.position.distanceTo(player.position) < 1.1) {
+                    stats.hp -= 0.5;
+                    if(stats.hp <= 0) gameOver();
+                }
+
+                bullets.forEach((b, bi) => {
+                    if(b.mesh.position.distanceTo(z.mesh.position) < 1.2) {
+                        z.hp -= stats.atk;
+                        b.life = 0;
+                        if(z.hp <= 0) {
+                            spawnItem(z.mesh.position);
+                            scene.remove(z.mesh);
+                            zombies.splice(i, 1);
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateBullets() {
+            for(let i = bullets.length-1; i >= 0; i--) {
+                const b = bullets[i];
+                b.mesh.position.addScaledVector(b.dir, 0.5);
+                b.life--;
+                if(b.life <= 0) { scene.remove(b.mesh); bullets.splice(i, 1); }
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('hp-fill').style.width = (stats.hp/stats.maxHp*100) + "%";
+            document.getElementById('lvl-txt').innerText = stats.level;
+            document.getElementById('atk-txt').innerText = stats.atk;
+            document.getElementById('coin-txt').innerText = stats.money;
+        }
+
+        function gameOver() {
+            document.getElementById('game-over').style.display = 'block';
+            set(ref(db, 'players/' + playerId), null);
+            animate = () => {}; // หยุด Loop
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        init();
+    </script>
+</body>
+</html>
