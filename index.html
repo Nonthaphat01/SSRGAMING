@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Meadow Survivor - Smooth Active World</title>
+    <title>Meadow Survivor - Absolute Follow</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
@@ -97,8 +97,7 @@
 
         const PLAYER_ID = "P_" + Math.floor(Math.random() * 9999);
         const MODELS = {
-            player: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/RobotExpressive/RobotExpressive.glb',
-            zombie: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/Soldier.glb'
+            player: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/RobotExpressive/RobotExpressive.glb'
         };
 
         let scene, camera, renderer, player;
@@ -109,10 +108,11 @@
         let stats = { hp: 100, money: 0, speed: 12, isAttacking: false };
         let lastShot = 0;
 
+        // Camera Lock Tracking
+        let prevPlayerPos = new THREE.Vector3();
+
         // Companion
         let companion, companionMixer, companionAction;
-
-        // ** สร้างระบบเวลา (Clock) ไว้ระดับบนสุดเพื่อให้พร้อมใช้งานเสมอ **
         const clock = new THREE.Clock();
 
         window.selectWeapon = function(type) {
@@ -127,7 +127,7 @@
             scene.background = new THREE.Color(0xa0cfec);
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 10, 12);
+            camera.position.set(0, 10, 15);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -135,13 +135,14 @@
             renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
 
-            // ปรับปรุงระบบกล้อง OrbitControls
+            // Controls
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
             controls.maxPolarAngle = Math.PI / 2.2;
+            controls.minDistance = 5;
+            controls.maxDistance = 25;
             
-            // คลิกซ้ายโจมตี / คลิกขวาหมุนมุมกล้องรอบตัว
             controls.mouseButtons = {
                 LEFT: THREE.MOUSE.NONE, 
                 MIDDLE: THREE.MOUSE.DOLLY,
@@ -165,17 +166,29 @@
 
             const loader = new GLTFLoader();
 
-            // Load Zombie Base
-            const zGltf = await loader.loadAsync(MODELS.zombie);
-            zombieBase = zGltf.scene;
-            zombieAnims = zGltf.animations;
-
-            // Load Player
+            // Load Player & Zombie (ใช้โมเดลตัวเดียวกันแต่เรนเดอร์พื้นผิวต่างกัน ป้องกันโหลดช้าและลิงก์เสีย)
             const pGltf = await loader.loadAsync(MODELS.player);
+            
+            // สร้าง Base Zombie (Cyber Ghoul) จากการดัดแปลงโมเดลตัวละครหลัก
+            zombieBase = SkeletonUtils.clone(pGltf.scene);
+            zombieBase.traverse(n => {
+                if(n.isMesh) {
+                    // ทำสีเนื้อตัวให้กลายเป็นหุ่นยนต์ติดเชื้อสีแดงเข้มสยองขวัญ
+                    n.material = n.material.clone();
+                    n.material.color.setHex(0x550000);
+                    n.material.emissive.setHex(0xff0000); // ตาและรอยต่อเรืองแสงสีแดงเลือด
+                    n.material.emissiveIntensity = 0.8;
+                }
+            });
+            zombieAnims = pGltf.animations;
+
+            // ตั้งค่า Player
             player = pGltf.scene;
             player.scale.set(0.4, 0.4, 0.4);
             player.traverse(n => { if(n.isMesh) n.castShadow = true; });
             scene.add(player);
+
+            prevPlayerPos.copy(player.position);
 
             playerMixer = new THREE.AnimationMixer(player);
             pGltf.animations.forEach(a => {
@@ -189,7 +202,6 @@
                 createCompanion(pGltf);
             }
 
-            // คลิกซ้ายฟัน/ยิงปืน
             window.addEventListener('mousedown', (e) => {
                 if(e.button === 0) performAttack();
             });
@@ -259,19 +271,19 @@
         function spawnZombie() {
             if(!zombieBase || zombies.length > 10) return;
             const model = SkeletonUtils.clone(zombieBase);
-            model.scale.set(1.4, 1.4, 1.4);
+            model.scale.set(0.5, 0.5, 0.5); // ขนาดใหญ่และบึกบึนกว่าผู้เล่นเล็กน้อย
             
             const a = Math.random() * Math.PI * 2;
-            model.position.set(player.position.x + Math.cos(a)*30, 0, player.position.z + Math.sin(a)*30);
+            model.position.set(player.position.x + Math.cos(a)*35, 0, player.position.z + Math.sin(a)*35);
             scene.add(model);
             
             const mixer = new THREE.AnimationMixer(model);
-            const isRunner = Math.random() > 0.5; // สุ่มให้ซอมบี้ 50% วิ่งเร็ว
+            const isRunner = Math.random() > 0.5;
             
-            const clipName = isRunner ? 'Run' : 'Walk';
-            // ป้องกันการสะกดผิดเคสตัวพิมพ์เล็ก/ใหญ่ของไฟล์โมเดลภายนอกด้วยการใช้ fallback ตัวแรกหากไม่เจอ
-            const actionClip = zombieAnims.find(an => an.name.toLowerCase() === clipName.toLowerCase()) || zombieAnims[0];
-            const deadClip = zombieAnims.find(an => an.name.toLowerCase() === 'dead') || zombieAnims[1];
+            // ดึงคลิปเอนิเมชั่นวิ่งและตายที่ติดตั้งมาในระบบหุ่นยนต์
+            const clipName = isRunner ? 'Running' : 'Walking'; 
+            const actionClip = zombieAnims.find(an => an.name === clipName) || zombieAnims[0];
+            const deadClip = zombieAnims.find(an => an.name === 'Death') || zombieAnims[1];
 
             const actions = {
                 move: mixer.clipAction(actionClip),
@@ -283,7 +295,7 @@
             zombies.push({ 
                 model, mixer, actions, 
                 hp: 10, isDead: false, 
-                speed: isRunner ? 5.0 : 2.5 // ปรับค่าความเร็วเดินและวิ่งให้ชัดเจนขึ้น
+                speed: isRunner ? 4.5 : 1.8 
             });
         }
 
@@ -308,7 +320,6 @@
             requestAnimationFrame(animate);
             if(!isReady) return;
             
-            // คำนวณความเร็วเฟรมเรตจริง (Delta Time)
             const delta = clock.getDelta();
 
             if(player) {
@@ -329,8 +340,12 @@
                     }
                 }
 
-                // กล้องเดินติดตามผู้เล่นแบบสมูท
-                controls.target.lerp(player.position, 0.1);
+                // ** ระบบย้ายกล้องตามการเดินของผู้เล่นโดยตรง (ไม่ดึงรั้งมุมกล้องที่กำลังหมุน) **
+                const displacement = player.position.clone().sub(prevPlayerPos);
+                camera.position.add(displacement); // เลื่อนจุดกล้องตามระยะการเดิน
+                prevPlayerPos.copy(player.position); // จำตำแหน่งล่าสุด
+
+                controls.target.copy(player.position); // ล็อคโฟกัสให้อยู่กลางผู้เล่นเสมอ
                 controls.update();
 
                 // หุ่นผู้ช่วยบินตาม
@@ -354,12 +369,11 @@
 
             if(playerMixer) playerMixer.update(delta);
 
-            // อัปเดตการเคลื่อนไหวของซอมบี้ (มีท่าทางและเคลื่อนไหวแน่นอน!)
+            // อัปเดตการเคลื่อนไหวของซอมบี้ (มีท่าทางแน่นอน!)
             zombies.forEach((z) => {
                 z.mixer.update(delta);
                 if(!z.isDead) {
                     const dir = new THREE.Vector3().subVectors(player.position, z.model.position).normalize();
-                    // บังคับการเคลื่อนไหวตามตำแหน่งและเวลากลางจริง
                     z.model.position.addScaledVector(dir, z.speed * delta);
                     z.model.lookAt(player.position);
                     
@@ -386,7 +400,7 @@
                 if(b.life <= 0) { scene.remove(b.mesh); bullets.splice(i, 1); }
             }
 
-            if(Math.random() < 0.012) spawnZombie();
+            if(Math.random() < 0.015) spawnZombie();
             updateUI();
             renderer.render(scene, camera);
         }
