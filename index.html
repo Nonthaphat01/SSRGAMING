@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SSR Zombie - Final Fixed</title>
+    <title>Cyber Survivor 3D - Pro Edition</title>
     
-    <!-- นำเข้า NippleJS สำหรับ Joystick (ตัวเดียวที่ใช้ Script tag ได้) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     
@@ -13,39 +12,39 @@
         :root { --neon-blue: #00f2ff; --neon-pink: #ff007b; }
         body { margin: 0; overflow: hidden; font-family: 'Orbitron', sans-serif; background: #000; color: #fff; }
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        .hud { position: absolute; padding: 20px; pointer-events: auto; background: rgba(0,0,0,0.7); border: 1px solid var(--neon-blue); }
-        .top-left { top: 10px; left: 10px; border-radius: 0 15px 15px 0; }
-        #hp-bar { width: 200px; height: 10px; background: #222; border: 1px solid var(--neon-blue); margin-top: 5px; }
-        #hp-fill { width: 100%; height: 100%; background: var(--neon-blue); transition: 0.3s; }
+        .hud { position: absolute; padding: 20px; pointer-events: auto; background: rgba(0,0,0,0.8); border: 1px solid var(--neon-blue); border-radius: 15px; box-shadow: 0 0 15px var(--neon-blue); }
+        .top-left { top: 20px; left: 20px; }
+        #hp-bar { width: 220px; height: 12px; background: #111; border: 1px solid var(--neon-blue); margin-top: 5px; border-radius: 6px; overflow: hidden; }
+        #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #0066ff, var(--neon-blue)); transition: 0.3s; }
         #joystick-zone { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; pointer-events: auto; }
         #loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: flex; justify-content: center; align-items: center; z-index: 100; flex-direction: column; }
         .overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); padding: 40px; border: 2px solid var(--neon-pink); text-align: center; display: none; pointer-events: auto; }
-        button { background: transparent; border: 1px solid var(--neon-blue); color: white; padding: 10px 20px; font-family: 'Orbitron'; cursor: pointer; margin-top: 20px; }
+        .instruction { position: absolute; bottom: 20px; right: 20px; font-size: 10px; color: var(--neon-blue); opacity: 0.7; }
     </style>
 </head>
 <body>
 
     <div id="loading-screen">
         <div style="border: 5px solid #222; border-top: 5px solid var(--neon-blue); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;"></div>
-        <p>LOADING SYSTEM...</p>
+        <p style="margin-top: 15px; letter-spacing: 3px;">INITIALIZING COMBAT ZONE...</p>
     </div>
 
     <div id="ui-layer">
         <div class="hud top-left">
-            <div style="font-size: 10px;">INTEGRITY</div>
+            <div style="font-size: 10px; color: var(--neon-blue);">NANOBOT INTEGRITY</div>
             <div id="hp-bar"><div id="hp-fill"></div></div>
-            <div style="margin-top:10px">CREDITS: <span id="coin-val" style="color:var(--neon-blue)">0</span></div>
-            <div style="font-size: 10px; margin-top:5px">PLAYERS: <span id="online-val">1</span></div>
+            <div style="margin-top:10px; font-size: 18px;">🪙 <span id="coin-val">0</span></div>
+            <div style="font-size: 10px; margin-top:5px">USERS LINKED: <span id="online-val">1</span></div>
         </div>
         <div id="game-over" class="overlay">
-            <h1 style="color:var(--neon-pink)">CRITICAL ERROR</h1>
-            <button onclick="location.reload()">REBOOT</button>
+            <h1 style="color:var(--neon-pink)">SYSTEM TERMINATED</h1>
+            <button onclick="location.reload()" style="background:transparent; border:1px solid var(--neon-blue); color:white; padding:10px 20px; font-family:'Orbitron'; cursor:pointer;">RE-SYNC</button>
         </div>
+        <div class="instruction">MOUSE L/R: ROTATE CAMERA | SCROLL: ZOOM | WASD: MOVE</div>
     </div>
 
     <div id="joystick-zone"></div>
 
-    <!-- ตั้งค่า Import Map ให้ถูกต้อง (ห้ามแก้ส่วนนี้) -->
     <script type="importmap">
         {
             "imports": {
@@ -58,10 +57,12 @@
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { SkeletonUtils } from 'three/addons/utils/SkeletonUtils.js'; // สำหรับ Clone โมเดลที่มี Animation
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue, onDisconnect, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // Firebase Config ของคุณ
+        // Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyC1SLWvio-oYibt4pzY8xVZRErHAbMLqbk",
             authDomain: "ssr-zombie.firebaseapp.com",
@@ -75,16 +76,16 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // Game Constants
         const PLAYER_ID = "P_" + Math.floor(Math.random() * 9999);
         const MODEL_URLS = {
             player: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/RobotExpressive/RobotExpressive.glb',
             zombie: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/Soldier.glb'
         };
 
-        let scene, camera, renderer, clock, player;
+        let scene, camera, renderer, clock, controls, player;
         let playerMixer, playerActions = {};
-        let otherPlayers = {}, zombies = [], bullets = [], items = [];
+        let zombieBaseModel, zombieAnimations;
+        let otherPlayers = {}, zombies = [], bullets = [];
         let moveVec = new THREE.Vector3();
         let stats = { hp: 100, money: 0, speed: 0.15 };
         let lastShot = 0;
@@ -92,34 +93,47 @@
         async function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x020205);
-            scene.fog = new THREE.FogExp2(0x020205, 0.05);
+            scene.fog = new THREE.FogExp2(0x020205, 0.04);
 
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 15, 10);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 10, 15);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const sun = new THREE.DirectionalLight(0x00f2ff, 1);
-            sun.position.set(5, 10, 5);
-            sun.castShadow = true;
-            scene.add(sun);
+            // Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2.1; // กันกล้องมุดดิน
 
-            scene.add(new THREE.GridHelper(100, 50, 0x00f2ff, 0x111111));
+            // Lights
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            const pointLight = new THREE.PointLight(0x00f2ff, 2, 50);
+            pointLight.position.set(0, 10, 0);
+            scene.add(pointLight);
+
+            // พื้นแบบ Cyber Grid
+            const grid = new THREE.GridHelper(200, 60, 0x00f2ff, 0x111111);
+            scene.add(grid);
 
             const loader = new GLTFLoader();
+
+            // Load Zombie Base Model (เพื่อเอามา Clone)
+            const zombieData = await loader.loadAsync(MODEL_URLS.zombie);
+            zombieBaseModel = zombieData.scene;
+            zombieAnimations = zombieData.animations;
 
             // Load Player
             loader.load(MODEL_URLS.player, (gltf) => {
                 player = gltf.scene;
                 player.scale.set(0.4, 0.4, 0.4);
+                player.traverse(n => { if(n.isMesh) n.castShadow = true; });
                 scene.add(player);
 
                 playerMixer = new THREE.AnimationMixer(player);
-                // RobotExpressive มีท่า: Idle, Running, Death
                 gltf.animations.forEach(a => {
                     if(a.name === 'Idle') playerActions.idle = playerMixer.clipAction(a);
                     if(a.name === 'Running') playerActions.run = playerMixer.clipAction(a);
@@ -133,57 +147,23 @@
             });
         }
 
-        function startSync() {
-            const pRef = ref(db, 'players/' + PLAYER_ID);
-            onDisconnect(pRef).remove();
+        function spawnZombie() {
+            if(!zombieBaseModel || zombies.length >= 8) return;
 
-            onValue(ref(db, 'players'), (snap) => {
-                const data = snap.val();
-                if(!data) return;
-                document.getElementById('online-val').innerText = Object.keys(data).length;
+            const model = SkeletonUtils.clone(zombieBaseModel);
+            model.scale.set(1.5, 1.5, 1.5);
+            
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 30;
+            model.position.set(player.position.x + Math.cos(angle)*dist, 0, player.position.z + Math.sin(angle)*dist);
+            
+            scene.add(model);
+            
+            const mixer = new THREE.AnimationMixer(model);
+            const walkAction = mixer.clipAction(zombieAnimations.find(a => a.name === 'Walk'));
+            walkAction.play();
 
-                Object.keys(data).forEach(id => {
-                    if(id === PLAYER_ID) return;
-                    if(!otherPlayers[id]) createOtherPlayer(id);
-                    const op = otherPlayers[id];
-                    if(op.mesh) {
-                        op.mesh.position.lerp(new THREE.Vector3(data[id].x, 0, data[id].z), 0.2);
-                        op.mesh.rotation.y = data[id].ry;
-                    }
-                });
-
-                Object.keys(otherPlayers).forEach(id => {
-                    if(!data[id]) { scene.remove(otherPlayers[id].mesh); delete otherPlayers[id]; }
-                });
-            });
-        }
-
-        function createOtherPlayer(id) {
-            const geo = new THREE.BoxGeometry(1, 2, 1);
-            const mat = new THREE.MeshPhongMaterial({color: 0xff007b});
-            const mesh = new THREE.Mesh(geo, mat);
-            scene.add(mesh);
-            otherPlayers[id] = { mesh };
-        }
-
-        function setupControls() {
-            const keys = {};
-            window.addEventListener('keydown', e => keys[e.code] = true);
-            window.addEventListener('keyup', e => keys[e.code] = false);
-
-            setInterval(() => {
-                let x = 0, z = 0;
-                if(keys['KeyW']) z = -1; if(keys['KeyS']) z = 1;
-                if(keys['KeyA']) x = -1; if(keys['KeyD']) x = 1;
-                moveVec.set(x, 0, z).normalize();
-            }, 10);
-
-            nipplejs.create({
-                zone: document.getElementById('joystick-zone'),
-                mode: 'static', position: {left: '60px', bottom: '60px'}, color: 'cyan'
-            }).on('move', (e, d) => {
-                moveVec.set(Math.cos(d.angle.radian), 0, -Math.sin(d.angle.radian));
-            }).on('end', () => moveVec.set(0,0,0));
+            zombies.push({ model, mixer, hp: 10 });
         }
 
         function animate() {
@@ -191,37 +171,56 @@
             const delta = clock.getDelta();
 
             if(player) {
-                const isMoving = moveVec.length() > 0.1;
-                if(isMoving) {
-                    player.position.addScaledVector(moveVec, stats.speed);
-                    player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, Math.atan2(moveVec.x, moveVec.z), 0.1);
+                // เคลื่อนที่ตามมุมมองกล้อง
+                if(moveVec.length() > 0.1) {
+                    const angle = Math.atan2(moveVec.x, moveVec.z) + camera.rotation.y;
+                    const finalVec = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle));
+                    player.position.addScaledVector(finalVec, stats.speed);
+                    player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, angle, 0.1);
+
                     if(!playerActions.run?.isRunning()) { playerActions.idle?.stop(); playerActions.run?.play(); }
                 } else {
                     if(!playerActions.idle?.isRunning()) { playerActions.run?.stop(); playerActions.idle?.play(); }
                 }
 
-                camera.position.lerp(new THREE.Vector3(player.position.x, 12, player.position.z + 10), 0.1);
-                camera.lookAt(player.position);
+                // กล้องตามตัวผู้เล่น
+                controls.target.lerp(player.position, 0.1);
+                controls.update();
 
                 update(ref(db, 'players/' + PLAYER_ID), {
                     x: player.position.x, z: player.position.z, ry: player.rotation.y
                 });
 
-                // Shooting
-                if(Date.now() - lastShot > 500) {
+                // Auto Shooting
+                if(Date.now() - lastShot > 400) {
                     let target = null;
-                    zombies.forEach(z => {
-                        if(z.mesh.position.distanceTo(player.position) < 15) target = z.mesh;
-                    });
-                    if(target) {
-                        shoot(target.position);
-                        lastShot = Date.now();
-                    }
+                    zombies.forEach(z => { if(z.model.position.distanceTo(player.position) < 15) target = z.model; });
+                    if(target) { shoot(target.position); lastShot = Date.now(); }
                 }
             }
 
             if(playerMixer) playerMixer.update(delta);
-            updateZombies();
+            
+            zombies.forEach((z, i) => {
+                const dir = new THREE.Vector3().subVectors(player.position, z.model.position).normalize();
+                z.model.position.addScaledVector(dir, 0.05);
+                z.model.lookAt(player.position);
+                z.mixer.update(delta);
+
+                if(z.model.position.distanceTo(player.position) < 1.2) {
+                    stats.hp -= 0.3;
+                    if(stats.hp <= 0) document.getElementById('game-over').style.display='block';
+                }
+
+                bullets.forEach((b, bi) => {
+                    if(b.mesh.position.distanceTo(z.model.position) < 1.5) {
+                        z.hp -= 5; b.life = 0;
+                        if(z.hp <= 0) { scene.remove(z.model); zombies.splice(i,1); stats.money += 10; }
+                    }
+                });
+            });
+
+            if(Math.random() < 0.01) spawnZombie();
             updateBullets();
             updateUI();
             renderer.render(scene, camera);
@@ -229,44 +228,48 @@
 
         function shoot(targetPos) {
             const b = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshBasicMaterial({color: 0xffff00}));
-            b.position.copy(player.position).y = 1;
+            b.position.copy(player.position).y = 1.2;
             const dir = new THREE.Vector3().subVectors(targetPos, player.position).normalize();
             scene.add(b);
             bullets.push({ mesh: b, dir, life: 100 });
         }
 
-        function updateZombies() {
-            if(zombies.length < 5) {
-                const geo = new THREE.BoxGeometry(1, 2, 1);
-                const mat = new THREE.MeshPhongMaterial({color: 0xff4400});
-                const mesh = new THREE.Mesh(geo, mat);
-                const a = Math.random() * Math.PI * 2;
-                mesh.position.set(player.position.x + Math.cos(a)*20, 0, player.position.z + Math.sin(a)*20);
-                scene.add(mesh);
-                zombies.push({ mesh, hp: 10 });
-            }
-
-            zombies.forEach((z, i) => {
-                const dir = new THREE.Vector3().subVectors(player.position, z.mesh.position).normalize();
-                z.mesh.position.addScaledVector(dir, 0.04);
-                if(z.mesh.position.distanceTo(player.position) < 1.2) {
-                    stats.hp -= 0.2;
-                    if(stats.hp <= 0) document.getElementById('game-over').style.display='block';
-                }
-                bullets.forEach((b, bi) => {
-                    if(b.mesh.position.distanceTo(z.mesh.position) < 1.2) {
-                        z.hp -= 5; b.life = 0;
-                        if(z.hp <= 0) { scene.remove(z.mesh); zombies.splice(i,1); stats.money += 10; }
+        function startSync() {
+            onValue(ref(db, 'players'), (snap) => {
+                const data = snap.val();
+                if(!data) return;
+                document.getElementById('online-val').innerText = Object.keys(data).length;
+                Object.keys(data).forEach(id => {
+                    if(id === PLAYER_ID) return;
+                    if(!otherPlayers[id]) {
+                        const m = new THREE.Mesh(new THREE.BoxGeometry(1,2,1), new THREE.MeshPhongMaterial({color:0xff007b}));
+                        scene.add(m); otherPlayers[id] = m;
                     }
+                    otherPlayers[id].position.lerp(new THREE.Vector3(data[id].x, 0, data[id].z), 0.2);
                 });
+                Object.keys(otherPlayers).forEach(id => { if(!data[id]) { scene.remove(otherPlayers[id]); delete otherPlayers[id]; } });
             });
+        }
+
+        function setupControls() {
+            const keys = {};
+            window.addEventListener('keydown', e => keys[e.code] = true);
+            window.addEventListener('keyup', e => keys[e.code] = false);
+            setInterval(() => {
+                let x = 0, z = 0;
+                if(keys['KeyW']) z = 1; if(keys['KeyS']) z = -1;
+                if(keys['KeyA']) x = 1; if(keys['KeyD']) x = -1;
+                moveVec.set(x, 0, z).normalize();
+            }, 10);
+            nipplejs.create({ zone: document.getElementById('joystick-zone'), mode: 'static', position: {left: '60px', bottom: '60px'}, color: 'cyan' })
+            .on('move', (e, d) => moveVec.set(Math.sin(d.angle.radian), 0, Math.cos(d.angle.radian)))
+            .on('end', () => moveVec.set(0,0,0));
         }
 
         function updateBullets() {
             for(let i=bullets.length-1; i>=0; i--) {
                 const b = bullets[i];
-                b.mesh.position.addScaledVector(b.dir, 0.5);
-                b.life--;
+                b.mesh.position.addScaledVector(b.dir, 0.6); b.life--;
                 if(b.life <= 0) { scene.remove(b.mesh); bullets.splice(i,1); }
             }
         }
@@ -278,7 +281,6 @@
 
         clock = new THREE.Clock();
         init();
-
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
